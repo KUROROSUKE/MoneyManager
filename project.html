@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>送金（選択式・安定版＋名前変更）</title>
+  <title>送金（選択式・安定版＋ランダム名前）</title>
   <meta charset="UTF-8" />
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-database-compat.js"></script>
 </head>
 <body>
-  <h1>💸 ユーザー間送金（安定版）</h1>
+  <h1>💸 ユーザー間送金（ランダム名）</h1>
 
   <button onclick="login()">🔑 Googleでログイン</button>
   <button onclick="logout()">🚪 ログアウト</button>
@@ -60,6 +60,27 @@
     const nameEditSection = document.getElementById("nameEditSection");
     const nameMessage = document.getElementById("nameMessage");
 
+    function getRandomName() {
+      const animals = ["neko", "inu", "tori", "kuma", "saru", "kitsune", "tanuki", "shika", "tako", "penguin"];
+      const rand = animals[Math.floor(Math.random() * animals.length)] + Math.floor(Math.random() * 1000);
+      return rand;
+    }
+
+    async function getAllNames() {
+      const snapshot = await db.ref("users").once("value");
+      const users = snapshot.val();
+      return users ? Object.values(users).map(u => u.name) : [];
+    }
+
+    async function generateUniqueName() {
+      const existingNames = await getAllNames();
+      let name;
+      do {
+        name = getRandomName();
+      } while (existingNames.includes(name));
+      return name;
+    }
+
     function login() {
       const provider = new firebase.auth.GoogleAuthProvider();
       auth.signInWithPopup(provider).catch(error => {
@@ -71,27 +92,29 @@
       auth.signOut();
     }
 
-    auth.onAuthStateChanged(user => {
+    auth.onAuthStateChanged(async user => {
       const userInfo = document.getElementById("userInfo");
       if (user) {
         currentUser = user;
         userInfo.innerHTML = `✅ ログイン中：${user.displayName}（UID: ${user.uid}）`;
 
         const userRef = db.ref("users/" + user.uid);
-        userRef.once("value").then(snapshot => {
-          const val = snapshot.val();
-          if (!val || val.balance == null) {
-            return userRef.set({
-              name: user.displayName || "名無し",
-              balance: 1000
-            });
-          } else {
-            nameInput.value = val.name || "";
-          }
-        }).then(() => {
-          loadUsers();
-          nameEditSection.style.display = "block";
-        });
+        const snapshot = await userRef.once("value");
+        const val = snapshot.val();
+
+        if (!val || val.balance == null) {
+          const uniqueName = await generateUniqueName();
+          await userRef.set({
+            name: uniqueName,
+            balance: 1000
+          });
+          nameInput.value = uniqueName;
+        } else {
+          nameInput.value = val.name || "";
+        }
+
+        loadUsers();
+        nameEditSection.style.display = "block";
       } else {
         currentUser = null;
         userInfo.textContent = "ログインしていません。";
@@ -100,12 +123,19 @@
       }
     });
 
-    function updateName() {
+    async function updateName() {
       const newName = nameInput.value.trim();
       if (!newName) {
         nameMessage.textContent = "❌ 空の名前は使えません";
         return;
       }
+
+      const existingNames = await getAllNames();
+      if (existingNames.includes(newName)) {
+        nameMessage.textContent = "❌ この名前は既に使われています";
+        return;
+      }
+
       const userRef = db.ref("users/" + currentUser.uid);
       userRef.update({ name: newName })
         .then(() => {
