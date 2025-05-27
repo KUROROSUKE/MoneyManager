@@ -43,6 +43,17 @@
   <h2>📊 現在のユーザー資金一覧</h2>
   <ul id="userBalanceList"></ul>
 
+  <hr>
+  <h2>📈 株式売買</h2>
+  <p>現在のSHARE価格：<span id="stockPrice">--</span> 円</p>
+  <p>保有株数：<span id="userStock">--</span> 株</p>
+
+  <label>数量：</label>
+  <input type="number" id="stockAmount" />
+  <button onclick="buyStock()">購入</button>
+  <button onclick="sellStock()">売却</button>
+  <div id="stockMessage"></div>
+
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyC_8ZxABdbxPH8lQGBPuCuZZIk_hLKi6OI",
