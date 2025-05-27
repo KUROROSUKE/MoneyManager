@@ -1,22 +1,34 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Googleログインとユーザー登録</title>
+  <title>送金テスト</title>
   <meta charset="UTF-8" />
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-database-compat.js"></script>
 </head>
 <body>
-  <h1>💳 おもちゃマネー - Googleログイン</h1>
+  <h1>💰 ユーザー間送金</h1>
 
   <button onclick="login()">🔑 Googleでログイン</button>
   <button onclick="logout()">🚪 ログアウト</button>
-
   <div id="userInfo">ログインしていません</div>
 
+  <hr>
+
+  <form onsubmit="handleTransfer(event)">
+    <label>送金先ユーザー（UID）：</label><br>
+    <input type="text" id="receiverUid" required><br><br>
+
+    <label>金額：</label><br>
+    <input type="number" id="amount" required><br><br>
+
+    <button type="submit">送金する</button>
+  </form>
+
+  <div id="message"></div>
+
   <script>
-    // Firebase 設定
     const firebaseConfig = {
       apiKey: "AIzaSyC_8ZxABdbxPH8lQGBPuCuZZIk_hLKi6OI",
       authDomain: "moneymanager-a0e97.firebaseapp.com",
@@ -31,7 +43,8 @@
     const auth = firebase.auth();
     const db = firebase.database();
 
-    // Googleログイン
+    let currentUser = null;
+
     function login() {
       const provider = new firebase.auth.GoogleAuthProvider();
       auth.signInWithPopup(provider).catch(error => {
@@ -39,40 +52,84 @@
       });
     }
 
-    // ログアウト
     function logout() {
-      auth.signOut().then(() => {
-        document.getElementById("userInfo").textContent = "ログアウトしました。";
-      });
+      auth.signOut();
     }
 
-    // ログイン状態の監視
     auth.onAuthStateChanged(user => {
       const userInfo = document.getElementById("userInfo");
       if (user) {
-        userInfo.innerHTML = `
-          ✅ ログイン中：<strong>${user.displayName}</strong><br>
-          UID: ${user.uid}
-        `;
+        currentUser = user;
+        userInfo.innerHTML = `✅ ログイン中：${user.displayName}（UID: ${user.uid}）`;
 
-        // UIDでユーザー情報を登録（存在しない場合のみ）
+        // 初回登録
         const userRef = db.ref("users/" + user.uid);
         userRef.once("value").then(snapshot => {
           if (!snapshot.exists()) {
             userRef.set({
               name: user.displayName || "名無し",
-              balance: 1000 // 初期残高
-            }).then(() => {
-              console.log("ユーザー登録完了");
+              balance: 1000
             });
-          } else {
-            console.log("ユーザーは既に登録済み");
           }
         });
       } else {
+        currentUser = null;
         userInfo.textContent = "ログインしていません。";
       }
     });
+
+    function handleTransfer(event) {
+      event.preventDefault();
+
+      const toUid = document.getElementById("receiverUid").value.trim();
+      const amount = parseInt(document.getElementById("amount").value, 10);
+      const message = document.getElementById("message");
+      message.textContent = "";
+
+      if (!currentUser) {
+        alert("ログインしてください！");
+        return;
+      }
+
+      if (!toUid || isNaN(amount) || amount <= 0) {
+        alert("有効な送金先と金額を入力してください");
+        return;
+      }
+
+      const fromUid = currentUser.uid;
+
+      if (fromUid === toUid) {
+        alert("自分自身に送金はできません！");
+        return;
+      }
+
+      const fromRef = db.ref("users/" + fromUid);
+      const toRef = db.ref("users/" + toUid);
+
+      // トランザクションで送金処理
+      fromRef.transaction(fromData => {
+        if (fromData && fromData.balance >= amount) {
+          fromData.balance -= amount;
+          return fromData;
+        } else {
+          message.textContent = "残高不足です！";
+          return; // 中止
+        }
+      }).then(result => {
+        if (!result.committed) return;
+
+        toRef.transaction(toData => {
+          if (toData) {
+            toData.balance += amount;
+            return toData;
+          }
+        });
+
+        message.textContent = "✅ 送金完了！";
+      }).catch(error => {
+        message.textContent = "❌ エラー：" + error.message;
+      });
+    }
   </script>
 </body>
 </html>
