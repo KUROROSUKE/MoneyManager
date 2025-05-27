@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>送金（選択式・安定版＋ランダム名前）</title>
+  <title>送金（選択式・安定版＋ランダム名前＋一覧表示）</title>
   <meta charset="UTF-8" />
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
@@ -39,6 +39,10 @@
 
   <div id="message"></div>
 
+  <hr>
+  <h2>📊 現在のユーザー資金一覧</h2>
+  <ul id="userBalanceList"></ul>
+
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyC_8ZxABdbxPH8lQGBPuCuZZIk_hLKi6OI",
@@ -59,6 +63,7 @@
     const nameInput = document.getElementById("nameInput");
     const nameEditSection = document.getElementById("nameEditSection");
     const nameMessage = document.getElementById("nameMessage");
+    const userBalanceList = document.getElementById("userBalanceList");
 
     function getRandomName() {
       const animals = ["neko", "inu", "tori", "kuma", "saru", "kitsune", "tanuki", "shika", "tako", "penguin"];
@@ -150,17 +155,24 @@
     function loadUsers() {
       const select = document.getElementById("receiverSelect");
       select.innerHTML = '<option value="">-- ユーザーを選択 --</option>';
+      userBalanceList.innerHTML = '';
 
       db.ref("users").once("value").then(snapshot => {
         const users = snapshot.val();
         if (users && currentUser) {
           Object.entries(users).forEach(([uid, data]) => {
+            // 送金先用セレクト
             if (uid !== currentUser.uid) {
               const option = document.createElement("option");
               option.value = uid;
               option.textContent = `${data.name}（残高：${data.balance}円）`;
               select.appendChild(option);
             }
+
+            // 資金一覧表示
+            const li = document.createElement("li");
+            li.textContent = `${data.name}：${data.balance}円`;
+            userBalanceList.appendChild(li);
           });
         }
       });
