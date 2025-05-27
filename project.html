@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>送金（選択式・修正版）</title>
+  <title>送金（選択式・安定版）</title>
   <meta charset="UTF-8" />
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-database-compat.js"></script>
 </head>
 <body>
-  <h1>💸 ユーザー間送金（修正版）</h1>
+  <h1>💸 ユーザー間送金（安定版）</h1>
 
   <button onclick="login()">🔑 Googleでログイン</button>
   <button onclick="logout()">🚪 ログアウト</button>
@@ -68,14 +68,14 @@
         userRef.once("value").then(snapshot => {
           const val = snapshot.val();
           if (!val || val.balance == null) {
-            userRef.set({
+            return userRef.set({
               name: user.displayName || "名無し",
               balance: 1000
             });
           }
+        }).then(() => {
+          loadUsers();
         });
-
-        loadUsers(); // ログイン後にユーザー一覧取得
       } else {
         currentUser = null;
         userInfo.textContent = "ログインしていません。";
@@ -104,66 +104,66 @@
 
     function handleTransfer(event) {
       event.preventDefault();
-    
+
       const toUid = document.getElementById("receiverSelect").value;
       const amount = parseInt(document.getElementById("amount").value, 10);
       const message = document.getElementById("message");
       message.textContent = "";
-    
+
       if (!currentUser) {
         alert("ログインしてください！");
         return;
       }
-    
+
       if (!toUid || isNaN(amount) || amount <= 0) {
         alert("有効な送金先と金額を入力してください");
         return;
       }
-    
+
       const fromUid = currentUser.uid;
       const fromRef = db.ref("users/" + fromUid);
       const toRef = db.ref("users/" + toUid);
-    
-      // ✅ まず送金元データがあるか事前にチェック
+
       fromRef.once("value").then(snapshot => {
         const fromData = snapshot.val();
-    
+
         if (!fromData || typeof fromData.balance !== "number") {
-          message.textContent = "❌ 送金元のデータが正しく取得できません";
+          message.textContent = "❌ 自分のデータが見つかりません";
           return;
         }
-    
+
         if (fromData.balance < amount) {
           message.textContent = "❌ 残高不足です";
           return;
         }
-    
-        // ✅ トランザクションで送金（確実にデータがあることが前提）
+
+        // トランザクション（送金）
         fromRef.transaction(current => {
-          if (current && current.balance >= amount) {
-            current.balance -= amount;
-            return current;
-          } else {
-            return; // 中止
-          }
+          if (!current || typeof current.balance !== "number") return current;
+          current.balance -= amount;
+          return current;
         }).then(result => {
           if (!result.committed) {
-            message.textContent = "❌ トランザクション中止（再試行してください）";
+            message.textContent = "❌ トランザクション中止（自分）";
             return;
           }
-    
+
           toRef.transaction(current => {
-            if (current && typeof current.balance === "number") {
-              current.balance += amount;
-              return current;
+            if (!current || typeof current.balance !== "number") return current;
+            current.balance += amount;
+            return current;
+          }).then(toResult => {
+            if (!toResult.committed) {
+              message.textContent = "⚠️ 相手のトランザクション中止（リトライ推奨）";
+              return;
             }
+
+            message.textContent = "✅ 送金成功！";
+            loadUsers();
           });
-    
-          message.textContent = "✅ 送金成功！";
-          loadUsers(); // 残高更新
         });
       }).catch(error => {
-        message.textContent = "❌ エラー：" + error.message;
+        message.textContent = "❌ 処理中エラー：" + error.message;
       });
     }
   </script>
