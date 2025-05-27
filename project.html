@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Googleログインとユーザー登録</title>
+  <meta charset="UTF-8" />
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-database-compat.js"></script>
+</head>
+<body>
+  <h1>💳 おもちゃマネー - Googleログイン</h1>
+
+  <button onclick="login()">🔑 Googleでログイン</button>
+  <button onclick="logout()">🚪 ログアウト</button>
+
+  <div id="userInfo">ログインしていません</div>
+
+  <script>
+    // Firebase 設定
+    const firebaseConfig = {
+      apiKey: "AIzaSyC_8ZxABdbxPH8lQGBPuCuZZIk_hLKi6OI",
+      authDomain: "moneymanager-a0e97.firebaseapp.com",
+      databaseURL: "https://moneymanager-a0e97-default-rtdb.firebaseio.com",
+      projectId: "moneymanager-a0e97",
+      storageBucket: "moneymanager-a0e97.appspot.com",
+      messagingSenderId: "649411038344",
+      appId: "1:649411038344:web:bacd8a5c7a743e6edf633d"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.database();
+
+    // Googleログイン
+    function login() {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider).catch(error => {
+        alert("ログイン失敗：" + error.message);
+      });
+    }
+
+    // ログアウト
+    function logout() {
+      auth.signOut().then(() => {
+        document.getElementById("userInfo").textContent = "ログアウトしました。";
+      });
+    }
+
+    // ログイン状態の監視
+    auth.onAuthStateChanged(user => {
+      const userInfo = document.getElementById("userInfo");
+      if (user) {
+        userInfo.innerHTML = `
+          ✅ ログイン中：<strong>${user.displayName}</strong><br>
+          UID: ${user.uid}
+        `;
+
+        // UIDでユーザー情報を登録（存在しない場合のみ）
+        const userRef = db.ref("users/" + user.uid);
+        userRef.once("value").then(snapshot => {
+          if (!snapshot.exists()) {
+            userRef.set({
+              name: user.displayName || "名無し",
+              balance: 1000 // 初期残高
+            }).then(() => {
+              console.log("ユーザー登録完了");
+            });
+          } else {
+            console.log("ユーザーは既に登録済み");
+          }
+        });
+      } else {
+        userInfo.textContent = "ログインしていません。";
+      }
+    });
+  </script>
+</body>
+</html>
