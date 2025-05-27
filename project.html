@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>送金（選択式・安定版）</title>
+  <title>送金（選択式・安定版＋名前変更）</title>
   <meta charset="UTF-8" />
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
@@ -13,6 +13,15 @@
   <button onclick="login()">🔑 Googleでログイン</button>
   <button onclick="logout()">🚪 ログアウト</button>
   <div id="userInfo">ログインしていません</div>
+
+  <hr>
+
+  <div id="nameEditSection" style="display:none;">
+    <label>表示名を変更：</label><br>
+    <input type="text" id="nameInput" />
+    <button onclick="updateName()">名前を保存</button>
+    <div id="nameMessage"></div>
+  </div>
 
   <hr>
 
@@ -47,6 +56,10 @@
 
     let currentUser = null;
 
+    const nameInput = document.getElementById("nameInput");
+    const nameEditSection = document.getElementById("nameEditSection");
+    const nameMessage = document.getElementById("nameMessage");
+
     function login() {
       const provider = new firebase.auth.GoogleAuthProvider();
       auth.signInWithPopup(provider).catch(error => {
@@ -72,16 +85,37 @@
               name: user.displayName || "名無し",
               balance: 1000
             });
+          } else {
+            nameInput.value = val.name || "";
           }
         }).then(() => {
           loadUsers();
+          nameEditSection.style.display = "block";
         });
       } else {
         currentUser = null;
         userInfo.textContent = "ログインしていません。";
         document.getElementById("receiverSelect").innerHTML = '<option value="">-- ユーザーを選択 --</option>';
+        nameEditSection.style.display = "none";
       }
     });
+
+    function updateName() {
+      const newName = nameInput.value.trim();
+      if (!newName) {
+        nameMessage.textContent = "❌ 空の名前は使えません";
+        return;
+      }
+      const userRef = db.ref("users/" + currentUser.uid);
+      userRef.update({ name: newName })
+        .then(() => {
+          nameMessage.textContent = "✅ 名前を更新しました";
+          loadUsers();
+        })
+        .catch(error => {
+          nameMessage.textContent = "❌ エラー：" + error.message;
+        });
+    }
 
     function loadUsers() {
       const select = document.getElementById("receiverSelect");
@@ -137,7 +171,6 @@
           return;
         }
 
-        // トランザクション（送金）
         fromRef.transaction(current => {
           if (!current || typeof current.balance !== "number") return current;
           current.balance -= amount;
