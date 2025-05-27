@@ -185,6 +185,9 @@
             const li = document.createElement("li");
             li.textContent = `${data.name}：${data.balance}円`;
             userBalanceList.appendChild(li);
+
+            const UserStockAmount = document.getElementById("stockAmount").innerHTML;
+            UserStockAmount.textContent = `${data.stock}円`;
           });
         }
       });
