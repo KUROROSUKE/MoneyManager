@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>送金 - ユーザー選択付き</title>
+  <title>送金（選択式・修正版）</title>
   <meta charset="UTF-8" />
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-database-compat.js"></script>
 </head>
 <body>
-  <h1>💸 ユーザー間送金（選択式）</h1>
+  <h1>💸 ユーザー間送金（修正版）</h1>
 
   <button onclick="login()">🔑 Googleでログイン</button>
   <button onclick="logout()">🚪 ログアウト</button>
@@ -66,7 +66,8 @@
 
         const userRef = db.ref("users/" + user.uid);
         userRef.once("value").then(snapshot => {
-          if (!snapshot.exists()) {
+          const val = snapshot.val();
+          if (!val || val.balance == null) {
             userRef.set({
               name: user.displayName || "名無し",
               balance: 1000
@@ -88,9 +89,8 @@
 
       db.ref("users").once("value").then(snapshot => {
         const users = snapshot.val();
-        if (users) {
+        if (users && currentUser) {
           Object.entries(users).forEach(([uid, data]) => {
-            // 自分自身は除く
             if (uid !== currentUser.uid) {
               const option = document.createElement("option");
               option.value = uid;
@@ -121,32 +121,54 @@
       }
 
       const fromUid = currentUser.uid;
-
       const fromRef = db.ref("users/" + fromUid);
       const toRef = db.ref("users/" + toUid);
 
+      console.log("🔁 送金開始: ", fromUid, "→", toUid, "金額:", amount);
+
       fromRef.transaction(fromData => {
-        if (fromData && fromData.balance >= amount) {
+        console.log("💡 fromData:", fromData);
+
+        if (!fromData) {
+          message.textContent = "❌ 送金元データが見つかりません";
+          return;
+        }
+
+        if (typeof fromData.balance !== "number") {
+          message.textContent = "❌ 残高が不正です";
+          return;
+        }
+
+        if (fromData.balance >= amount) {
           fromData.balance -= amount;
           return fromData;
         } else {
-          message.textContent = "残高不足です！";
+          message.textContent = "❌ 残高不足です";
           return;
         }
       }).then(result => {
         if (!result.committed) return;
 
+        // 送金先の残高更新
         toRef.transaction(toData => {
-          if (toData) {
-            toData.balance += amount;
-            return toData;
+          console.log("💡 toData:", toData);
+          if (!toData) {
+            message.textContent = "❌ 送金先ユーザーが見つかりません";
+            return;
           }
+          if (typeof toData.balance !== "number") {
+            message.textContent = "❌ 相手の残高が不正です";
+            return;
+          }
+
+          toData.balance += amount;
+          return toData;
         });
 
         message.textContent = "✅ 送金完了！";
-        loadUsers(); // 残高の再読み込み
+        loadUsers(); // 残高を再読み込み
       }).catch(error => {
-        message.textContent = "❌ エラー：" + error.message;
+        message.textContent = "❌ 送金エラー：" + error.message;
       });
     }
   </script>
