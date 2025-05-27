@@ -109,9 +109,10 @@
 
         if (!val || val.balance == null) {
           const uniqueName = await generateUniqueName();
-          await userRef.set({
+          await userRef.update({
             name: uniqueName,
-            balance: 1000
+            balance: 1000,
+            stock: 0
           });
           nameInput.value = uniqueName;
         } else {
@@ -239,6 +240,83 @@
         });
       }).catch(error => {
         message.textContent = "❌ 処理中エラー：" + error.message;
+      });
+    }
+
+    const stockPriceSpan = document.getElementById("stockPrice");
+    const userStockSpan = document.getElementById("userStock");
+    const stockMessage = document.getElementById("stockMessage");
+
+    function loadStockInfo() {
+      db.ref("stock/price").once("value").then(snapshot => {
+        const price = snapshot.val();
+        stockPriceSpan.textContent = price ?? "未設定";
+
+        if (currentUser) {
+          db.ref(`users/${currentUser.uid}/stock`).once("value").then(snap => {
+            userStockSpan.textContent = snap.val() || 0;
+          });
+        }
+      });
+    }
+
+    function buyStock() {
+      const amount = parseInt(document.getElementById("stockAmount").value, 10);
+      if (!amount || amount <= 0) return alert("数量を入力");
+
+      db.ref("stock/price").once("value").then(priceSnap => {
+        const price = priceSnap.val();
+        const cost = price * amount;
+
+        const userRef = db.ref("users/" + currentUser.uid);
+        userRef.once("value").then(snapshot => {
+          const data = snapshot.val();
+          if (data.balance < cost) {
+            stockMessage.textContent = "❌ 残高不足";
+            return;
+          }
+
+          userRef.transaction(current => {
+            if (!current) return current;
+            current.balance -= cost;
+            current.stock = (current.stock || 0) + amount;
+            return current;
+          }).then(() => {
+            stockMessage.textContent = "✅ 購入完了";
+            loadUsers();
+            loadStockInfo();
+          });
+        });
+      });
+    }
+
+    function sellStock() {
+      const amount = parseInt(document.getElementById("stockAmount").value, 10);
+      if (!amount || amount <= 0) return alert("数量を入力");
+
+      db.ref("stock/price").once("value").then(priceSnap => {
+        const price = priceSnap.val();
+        const gain = price * amount;
+
+        const userRef = db.ref("users/" + currentUser.uid);
+        userRef.once("value").then(snapshot => {
+          const data = snapshot.val();
+          if ((data.stock || 0) < amount) {
+            stockMessage.textContent = "❌ 株数不足";
+            return;
+          }
+
+          userRef.transaction(current => {
+            if (!current) return current;
+            current.balance += gain;
+            current.stock -= amount;
+            return current;
+          }).then(() => {
+            stockMessage.textContent = "✅ 売却完了";
+            loadUsers();
+            loadStockInfo();
+          });
+        });
       });
     }
   </script>
