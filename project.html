@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>送金テスト</title>
+  <title>送金 - ユーザー選択付き</title>
   <meta charset="UTF-8" />
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-database-compat.js"></script>
 </head>
 <body>
-  <h1>💰 ユーザー間送金</h1>
+  <h1>💸 ユーザー間送金（選択式）</h1>
 
   <button onclick="login()">🔑 Googleでログイン</button>
   <button onclick="logout()">🚪 ログアウト</button>
@@ -17,8 +17,10 @@
   <hr>
 
   <form onsubmit="handleTransfer(event)">
-    <label>送金先ユーザー（UID）：</label><br>
-    <input type="text" id="receiverUid" required><br><br>
+    <label>送金先ユーザー：</label><br>
+    <select id="receiverSelect" required>
+      <option value="">-- ユーザーを選択 --</option>
+    </select><br><br>
 
     <label>金額：</label><br>
     <input type="number" id="amount" required><br><br>
@@ -62,7 +64,6 @@
         currentUser = user;
         userInfo.innerHTML = `✅ ログイン中：${user.displayName}（UID: ${user.uid}）`;
 
-        // 初回登録
         const userRef = db.ref("users/" + user.uid);
         userRef.once("value").then(snapshot => {
           if (!snapshot.exists()) {
@@ -72,16 +73,39 @@
             });
           }
         });
+
+        loadUsers(); // ログイン後にユーザー一覧取得
       } else {
         currentUser = null;
         userInfo.textContent = "ログインしていません。";
+        document.getElementById("receiverSelect").innerHTML = '<option value="">-- ユーザーを選択 --</option>';
       }
     });
+
+    function loadUsers() {
+      const select = document.getElementById("receiverSelect");
+      select.innerHTML = '<option value="">-- ユーザーを選択 --</option>';
+
+      db.ref("users").once("value").then(snapshot => {
+        const users = snapshot.val();
+        if (users) {
+          Object.entries(users).forEach(([uid, data]) => {
+            // 自分自身は除く
+            if (uid !== currentUser.uid) {
+              const option = document.createElement("option");
+              option.value = uid;
+              option.textContent = `${data.name}（残高：${data.balance}円）`;
+              select.appendChild(option);
+            }
+          });
+        }
+      });
+    }
 
     function handleTransfer(event) {
       event.preventDefault();
 
-      const toUid = document.getElementById("receiverUid").value.trim();
+      const toUid = document.getElementById("receiverSelect").value;
       const amount = parseInt(document.getElementById("amount").value, 10);
       const message = document.getElementById("message");
       message.textContent = "";
@@ -98,22 +122,16 @@
 
       const fromUid = currentUser.uid;
 
-      if (fromUid === toUid) {
-        alert("自分自身に送金はできません！");
-        return;
-      }
-
       const fromRef = db.ref("users/" + fromUid);
       const toRef = db.ref("users/" + toUid);
 
-      // トランザクションで送金処理
       fromRef.transaction(fromData => {
         if (fromData && fromData.balance >= amount) {
           fromData.balance -= amount;
           return fromData;
         } else {
           message.textContent = "残高不足です！";
-          return; // 中止
+          return;
         }
       }).then(result => {
         if (!result.committed) return;
@@ -126,6 +144,7 @@
         });
 
         message.textContent = "✅ 送金完了！";
+        loadUsers(); // 残高の再読み込み
       }).catch(error => {
         message.textContent = "❌ エラー：" + error.message;
       });
