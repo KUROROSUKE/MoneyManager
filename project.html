@@ -104,71 +104,66 @@
 
     function handleTransfer(event) {
       event.preventDefault();
-
+    
       const toUid = document.getElementById("receiverSelect").value;
       const amount = parseInt(document.getElementById("amount").value, 10);
       const message = document.getElementById("message");
       message.textContent = "";
-
+    
       if (!currentUser) {
         alert("ログインしてください！");
         return;
       }
-
+    
       if (!toUid || isNaN(amount) || amount <= 0) {
         alert("有効な送金先と金額を入力してください");
         return;
       }
-
+    
       const fromUid = currentUser.uid;
       const fromRef = db.ref("users/" + fromUid);
       const toRef = db.ref("users/" + toUid);
-
-      console.log("🔁 送金開始: ", fromUid, "→", toUid, "金額:", amount);
-
-      fromRef.transaction(fromData => {
-        console.log("💡 fromData:", fromData);
-
-        if (!fromData) {
-          message.textContent = "❌ 送金元データが見つかりません";
+    
+      // ✅ まず送金元データがあるか事前にチェック
+      fromRef.once("value").then(snapshot => {
+        const fromData = snapshot.val();
+    
+        if (!fromData || typeof fromData.balance !== "number") {
+          message.textContent = "❌ 送金元のデータが正しく取得できません";
           return;
         }
-
-        if (typeof fromData.balance !== "number") {
-          message.textContent = "❌ 残高が不正です";
-          return;
-        }
-
-        if (fromData.balance >= amount) {
-          fromData.balance -= amount;
-          return fromData;
-        } else {
+    
+        if (fromData.balance < amount) {
           message.textContent = "❌ 残高不足です";
           return;
         }
-      }).then(result => {
-        if (!result.committed) return;
-
-        // 送金先の残高更新
-        toRef.transaction(toData => {
-          console.log("💡 toData:", toData);
-          if (!toData) {
-            message.textContent = "❌ 送金先ユーザーが見つかりません";
+    
+        // ✅ トランザクションで送金（確実にデータがあることが前提）
+        fromRef.transaction(current => {
+          if (current && current.balance >= amount) {
+            current.balance -= amount;
+            return current;
+          } else {
+            return; // 中止
+          }
+        }).then(result => {
+          if (!result.committed) {
+            message.textContent = "❌ トランザクション中止（再試行してください）";
             return;
           }
-          if (typeof toData.balance !== "number") {
-            message.textContent = "❌ 相手の残高が不正です";
-            return;
-          }
-
-          toData.balance += amount;
-          return toData;
+    
+          toRef.transaction(current => {
+            if (current && typeof current.balance === "number") {
+              current.balance += amount;
+              return current;
+            }
+          });
+    
+          message.textContent = "✅ 送金成功！";
+          loadUsers(); // 残高更新
         });
-
-        message.textContent = "✅ 送金完了！";
-        loadUsers(); // 残高を再読み込み
       }).catch(error => {
-        message.textContent = "❌ 送金エラー：" + error.message;
+        message.textContent = "❌ エラー：" + error.message;
       });
     }
   </script>
