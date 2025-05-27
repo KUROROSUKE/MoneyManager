@@ -109,7 +109,7 @@
 
         if (!val || val.balance == null) {
           const uniqueName = await generateUniqueName();
-          await userRef.update({
+          await userRef.set({
             name: uniqueName,
             balance: 1000,
             stock: 0
