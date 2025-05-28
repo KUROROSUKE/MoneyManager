@@ -304,6 +304,8 @@
       });
     }
 
+// 完全な買い・売り処理（診断ログ＆型チェック強化バージョン）
+
 function handleStockBuyTransfer(event) {
   event.preventDefault();
 
@@ -331,20 +333,28 @@ function handleStockBuyTransfer(event) {
     const stockPrice = typeof toData?.stock === "number" ? toData.stock : 1;
 
     fromRef.transaction(current => {
-      if (!current || typeof current.balance !== "number") return;
+      console.log("[DEBUG] トランザクション開始 current:", current);
+      if (!current || typeof current.balance !== "number") {
+        console.warn("⛔ balanceが不正または存在しない:", current?.balance);
+        return;
+      }
+
       if (!current.stocks || typeof current.stocks !== "object") current.stocks = {};
 
       const cost = stockPrice * amount;
-      if (current.balance < cost) return;
+      if (current.balance < cost) {
+        console.warn("⛔ 残高不足:", current.balance, "<", cost);
+        return;
+      }
 
       current.balance -= cost;
       current.stocks[toUid] = (current.stocks[toUid] || 0) + amount;
 
       return current;
     }).then(result => {
-      console.log(result);
+      console.log("[DEBUG] トランザクション結果:", result);
       if (!result.committed) {
-        message.textContent = "❌ 自分の更新に失敗しました（残高不足など）";
+        message.textContent = "❌ 自分の更新に失敗しました（残高不足・データ不正など）";
         return;
       }
 
@@ -363,6 +373,7 @@ function handleStockBuyTransfer(event) {
       });
     });
   }).catch(error => {
+    console.error("[ERROR] 株購入エラー:", error);
     message.textContent = "❌ エラー：" + error.message;
   });
 }
@@ -426,10 +437,10 @@ function handleStockSellTransfer(event) {
       });
     });
   }).catch(error => {
+    console.error("[ERROR] 株売却エラー:", error);
     message.textContent = "❌ エラー：" + error.message;
   });
 }
-
 
 
 
