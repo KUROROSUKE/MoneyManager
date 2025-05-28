@@ -345,6 +345,9 @@
           }
 
           console.log(fromRef);
+          fromRef.once('value').then(snapshot => {
+            console.log("Pre-check value:", snapshot.val());
+          });
           fromRef.transaction(current => {
             console.log("[DEBUG] トランザクション開始 current:", current);
             if (!current || typeof current.balance !== "number") {
