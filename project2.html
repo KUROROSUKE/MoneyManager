@@ -334,8 +334,9 @@
       const fromUid = currentUser.uid;
       console.log("[DEBUG] fromUid:", fromUid);
       const fromRef = db.ref("fromRef: " + fromUid);
-      //console.log("[DEBUG] fromUid:", fromUid);
       const toRef = db.ref("users/" + toUid);
+      console.log("[DEBUG] toRef:", toRef);
+      
 
       toRef.once("value").then(toSnap => {
         const toData = toSnap.val();
