@@ -293,7 +293,7 @@
             if (uid !== currentUser.uid) {
               const option = document.createElement("option");
               option.value = uid;
-              option.textContent = `${data.name}（株価：${data.balance}円）`;
+              option.textContent = `${data.name}（株価：${data.stock}株）`;
               select1.appendChild(option);
               select2.appendChild(option);
             }
