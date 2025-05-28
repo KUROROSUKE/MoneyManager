@@ -278,7 +278,6 @@
     const userStockSpan = document.getElementById("userStock");
     const stockMessage = document.getElementById("stockMessage");
 
-
     function loadUsersStocks() {
       const select1 = document.getElementById("BuyUserStockOption");
       const select2 = document.getElementById("SellUserStockOption");
@@ -327,24 +326,17 @@
       const fromRef = db.ref("users/" + fromUid);
       const toRef = db.ref("users/" + toUid);
 
-      fromRef.once("value").then(snapshot => {
-        const fromData = snapshot.val();
-
-        if (!fromData || typeof fromData.balance !== "number") {
-          message.textContent = "❌ 自分のデータが見つかりません";
-          return;
-        }
-
-        if (fromData.balance < amount) {
-          message.textContent = "❌ 残高不足です";
-          return;
-        }
+      toRef.once("value").then(toSnap => {
+        const toData = toSnap.val();
+        const stockPrice = toData.stock || 1; // 株価とみなす
 
         fromRef.transaction(current => {
           if (!current || typeof current.balance !== "number") return current;
-          current.balance -= amount * toRef.stock;
-          current.update({ toUid : toRef.stock + amount})
-          // toRef.stock  // ここで相手の株価を下げる
+          const cost = stockPrice * amount;
+          if (current.balance < cost) return; // 残高不足ならキャンセル
+
+          current.balance -= cost;
+          current.stock = (current.stock || 0) + amount;
           return current;
         }).then(result => {
           if (!result.committed) {
@@ -354,7 +346,8 @@
 
           toRef.transaction(current => {
             if (!current || typeof current.balance !== "number") return current;
-            current.balance += amount * current.stock;
+            current.balance += stockPrice * amount;
+            current.stock = (current.stock || 0) - amount;
             return current;
           }).then(toResult => {
             if (!toResult.committed) {
@@ -362,7 +355,7 @@
               return;
             }
 
-            message.textContent = "✅ 送金成功！";
+            message.textContent = "✅ 株を購入しました！";
             loadUsersStocks();
           });
         });
@@ -370,6 +363,7 @@
         message.textContent = "❌ 処理中エラー：" + error.message;
       });
     }
+
 
     function handleStockSellTransfer(event) {
       event.preventDefault();
