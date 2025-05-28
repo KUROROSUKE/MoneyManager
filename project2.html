@@ -171,11 +171,13 @@
         enableStockForms();
         loadUsers();
         loadUsersStocks();
+        nameEditSection.style.display = "block";
       } else {
         currentUser = null;
         disableStockForms();
       }
     });
+
     async function updateName() {
       const newName = nameInput.value.trim();
       if (!newName) {
