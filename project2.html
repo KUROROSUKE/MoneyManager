@@ -150,8 +150,11 @@
         }
 
         // 初期化が完了したあとにのみイベント登録を行う
-        document.getElementById("buyForm").addEventListener("submit", handleStockBuyTransfer);
-        document.getElementById("sellForm").addEventListener("submit", handleStockSellTransfer);
+        const buyForm = document.getElementById("buyForm");
+        if (buyForm) buyForm.addEventListener("submit", handleStockBuyTransfer);
+
+        const sellForm = document.getElementById("sellForm");
+        if (sellForm) sellForm.addEventListener("submit", handleStockSellTransfer);
 
         loadUsers();
         loadUsersStocks();
@@ -162,7 +165,6 @@
         nameEditSection.style.display = "none";
       }
     });
-
 
     async function updateName() {
       const newName = nameInput.value.trim();
@@ -338,44 +340,52 @@
         const toData = toSnap.val();
         const stockPrice = typeof toData?.stock === "number" ? toData.stock : 1;
 
-        fromRef.transaction(current => {
-          console.log("[DEBUG] トランザクション開始 current:", current);
-          if (!current || typeof current.balance !== "number") {
-            console.warn("⛔ balanceが不正または存在しない:", current?.balance);
+        fromRef.once("value").then(fromSnap => {
+          if (!fromSnap.exists()) {
+            console.warn("❌ fromRef データが存在しないため中断");
+            message.textContent = "❌ 自分のデータが存在しません（初期化直後の可能性）";
             return;
           }
 
-          if (!current.stocks || typeof current.stocks !== "object") current.stocks = {};
-
-          const cost = stockPrice * amount;
-          if (current.balance < cost) {
-            console.warn("⛔ 残高不足:", current.balance, "<", cost);
-            return;
-          }
-
-          current.balance -= cost;
-          current.stocks[toUid] = (current.stocks[toUid] || 0) + amount;
-
-          return current;
-        }).then(result => {
-          console.log("[DEBUG] トランザクション結果:", result);
-          if (!result.committed) {
-            message.textContent = "❌ 自分の更新に失敗しました（残高不足・データ不正など）";
-            return;
-          }
-
-          toRef.transaction(current => {
-            if (!current || typeof current.balance !== "number") return current;
-            current.balance += stockPrice * amount;
-            return current;
-          }).then(toResult => {
-            if (!toResult.committed) {
-              message.textContent = "⚠️ 相手のトランザクション中止（リトライ推奨）";
+          fromRef.transaction(current => {
+            console.log("[DEBUG] トランザクション開始 current:", current);
+            if (!current || typeof current.balance !== "number") {
+              console.warn("⛔ balanceが不正または存在しない:", current?.balance);
               return;
             }
 
-            message.textContent = "✅ 株を購入しました！";
-            loadUsersStocks();
+            if (!current.stocks || typeof current.stocks !== "object") current.stocks = {};
+
+            const cost = stockPrice * amount;
+            if (current.balance < cost) {
+              console.warn("⛔ 残高不足:", current.balance, "<", cost);
+              return;
+            }
+
+            current.balance -= cost;
+            current.stocks[toUid] = (current.stocks[toUid] || 0) + amount;
+
+            return current;
+          }).then(result => {
+            console.log("[DEBUG] トランザクション結果:", result);
+            if (!result.committed) {
+              message.textContent = "❌ 自分の更新に失敗しました（残高不足・データ不正など）";
+              return;
+            }
+
+            toRef.transaction(current => {
+              if (!current || typeof current.balance !== "number") return current;
+              current.balance += stockPrice * amount;
+              return current;
+            }).then(toResult => {
+              if (!toResult.committed) {
+                message.textContent = "⚠️ 相手のトランザクション中止（リトライ推奨）";
+                return;
+              }
+
+              message.textContent = "✅ 株を購入しました！";
+              loadUsersStocks();
+            });
           });
         });
       }).catch(error => {
@@ -447,7 +457,6 @@
         message.textContent = "❌ エラー：" + error.message;
       });
     }
-
 
 
 
