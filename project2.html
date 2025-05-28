@@ -49,15 +49,15 @@
   <form id="buyForm">
     <h3>株を購入</h3>
     <label for="BuyUserStockOption">購入対象ユーザー:</label>
-    <select id="BuyUserStockOption">
+    <select id="BuyUserStockOption" disabled>
       <option value="">-- ユーザーを選択 --</option>
       <!-- ユーザーのオプションが動的に追加されます -->
     </select>
 
     <label for="BuyStockAmount">株数:</label>
-    <input type="number" id="BuyStockAmount" min="1" required>
+    <input type="number" id="BuyStockAmount" min="1" required disabled>
 
-    <button type="submit">購入</button>
+    <button type="submit" disabled>購入</button>
     <div id="stockBuyMessage"></div>
   </form>
 
@@ -128,6 +128,18 @@
       });
     }
 
+    function enableStockForms() {
+      document.getElementById("BuyUserStockOption").disabled = false;
+      document.getElementById("BuyStockAmount").disabled = false;
+      document.querySelector("#buyForm button").disabled = false;
+    }
+
+    function disableStockForms() {
+      document.getElementById("BuyUserStockOption").disabled = true;
+      document.getElementById("BuyStockAmount").disabled = true;
+      document.querySelector("#buyForm button").disabled = true;
+    }
+
     function logout() {
       auth.signOut();
     }
@@ -149,22 +161,21 @@
           console.log("✅ 初期化完了:", uniqueName);
         }
 
-        // ここで登録すれば、確実に初期化完了後に発火
+        // 初期化完了後にイベント登録
         const buyForm = document.getElementById("buyForm");
-        if (buyForm) buyForm.addEventListener("submit", handleStockBuyTransfer);
-        const sellForm = document.getElementById("sellForm");
-        if (sellForm) sellForm.addEventListener("submit", handleStockSellTransfer);
+        if (buyForm) {
+          buyForm.removeEventListener("submit", handleStockBuyTransfer); // 重複回避
+          buyForm.addEventListener("submit", handleStockBuyTransfer);
+        }
 
+        enableStockForms();
         loadUsers();
         loadUsersStocks();
-        nameEditSection.style.display = "block";
       } else {
         currentUser = null;
-        document.getElementById("receiverSelect").innerHTML = '<option value="">-- ユーザーを選択 --</option>';
-        nameEditSection.style.display = "none";
+        disableStockForms();
       }
     });
-
     async function updateName() {
       const newName = nameInput.value.trim();
       if (!newName) {
@@ -332,61 +343,51 @@
       const fromUid = currentUser.uid;
       const fromRef = db.ref("users/" + fromUid);
       const toRef = db.ref("users/" + toUid);
-      
+
       toRef.once("value").then(toSnap => {
         const toData = toSnap.val();
         const stockPrice = typeof toData?.stock === "number" ? toData.stock : 1;
 
-        fromRef.once("value").then(fromSnap => {
-          if (!fromSnap.exists()) {
-            console.warn("❌ fromRef データが存在しないため中断");
-            message.textContent = "❌ 自分のデータが存在しません（初期化直後の可能性）";
+        fromRef.transaction(current => {
+          console.log("[DEBUG] トランザクション開始 current:", current);
+
+          if (!current || typeof current.balance !== "number") {
+            console.warn("⛔ balanceが不正または存在しない:", current?.balance);
+            return; // トランザクション中止
+          }
+
+          if (!current.stocks || typeof current.stocks !== "object") current.stocks = {};
+
+          const cost = stockPrice * amount;
+          if (current.balance < cost) {
+            console.warn("⛔ 残高不足:", current.balance, "<", cost);
             return;
           }
 
-          console.log(fromRef);
-          fromRef.once('value').then(snapshot => {
-            console.log("Pre-check value:", snapshot.val());
-          });
-          fromRef.transaction(current => {
-            console.log("[DEBUG] トランザクション開始 current:", current);
-            if (!current || typeof current.balance !== "number") {
-              console.warn("⛔ balanceが不正または存在しない:", current?.balance);
-              return;
-            }
+          current.balance -= cost;
+          current.stocks[toUid] = (current.stocks[toUid] || 0) + amount;
 
-            if (!current.stocks || typeof current.stocks !== "object") current.stocks = {};
+          return current;
+        }).then(result => {
+          console.log("[DEBUG] トランザクション結果:", result);
 
-            const cost = stockPrice * amount;
-            if (current.balance < cost) {
-              console.warn("⛔ 残高不足:", current.balance, "<", cost);
-              return;
-            }
+          if (!result.committed) {
+            message.textContent = "❌ 自分の更新に失敗しました（残高不足・データ不正など）";
+            return;
+          }
 
-            current.balance -= cost;
-            current.stocks[toUid] = (current.stocks[toUid] || 0) + amount;
-
+          toRef.transaction(current => {
+            if (!current || typeof current.balance !== "number") return current;
+            current.balance += stockPrice * amount;
             return current;
-          }).then(result => {
-            console.log("[DEBUG] トランザクション結果:", result);
-            if (!result.committed) {
-              message.textContent = "❌ 自分の更新に失敗しました（残高不足・データ不正など）";
+          }).then(toResult => {
+            if (!toResult.committed) {
+              message.textContent = "⚠️ 相手のトランザクション中止（リトライ推奨）";
               return;
             }
 
-            toRef.transaction(current => {
-              if (!current || typeof current.balance !== "number") return current;
-              current.balance += stockPrice * amount;
-              return current;
-            }).then(toResult => {
-              if (!toResult.committed) {
-                message.textContent = "⚠️ 相手のトランザクション中止（リトライ推奨）";
-                return;
-              }
-
-              message.textContent = "✅ 株を購入しました！";
-              loadUsersStocks();
-            });
+            message.textContent = "✅ 株を購入しました！";
+            loadUsersStocks();
           });
         });
       }).catch(error => {
