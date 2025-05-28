@@ -332,13 +332,13 @@ function handleStockBuyTransfer(event) {
 
     fromRef.transaction(current => {
       if (!current || typeof current.balance !== "number") return;
+      if (!current.stocks || typeof current.stocks !== "object") current.stocks = {};
+
       const cost = stockPrice * amount;
       if (current.balance < cost) return;
 
       current.balance -= cost;
-      const userStocks = current.stocks || {};
-      userStocks[toUid] = (userStocks[toUid] || 0) + amount;
-      current.stocks = userStocks;
+      current.stocks[toUid] = (current.stocks[toUid] || 0) + amount;
 
       return current;
     }).then(result => {
@@ -365,8 +365,6 @@ function handleStockBuyTransfer(event) {
     message.textContent = "❌ エラー：" + error.message;
   });
 }
-
-
 
 function handleStockSellTransfer(event) {
   event.preventDefault();
@@ -396,19 +394,19 @@ function handleStockSellTransfer(event) {
 
     fromRef.transaction(current => {
       if (!current || typeof current.balance !== "number") return;
-      const userStocks = current.stocks || {};
-      const owned = userStocks[toUid];
+      if (!current.stocks || typeof current.stocks !== "object") return;
+
+      const owned = current.stocks[toUid];
       if (typeof owned !== "number" || owned < amount) return;
 
       current.balance += stockPrice * amount;
-      userStocks[toUid] = owned - amount;
-      if (userStocks[toUid] === 0) delete userStocks[toUid];
-      current.stocks = userStocks;
+      current.stocks[toUid] = owned - amount;
+      if (current.stocks[toUid] === 0) delete current.stocks[toUid];
 
       return current;
     }).then(result => {
       if (!result.committed) {
-        message.textContent = "❌ 自分の更新に失敗しました";
+        message.textContent = "❌ 自分の更新に失敗しました（保有株不足など）";
         return;
       }
 
