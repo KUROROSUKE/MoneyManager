@@ -235,6 +235,9 @@
       const fromRef = db.ref("users/" + fromUid);
       const toRef = db.ref("users/" + toUid);
 
+      console.log("[DEBUG] fromUid:", fromUid);
+
+
       fromRef.once("value").then(snapshot => {
         const fromData = snapshot.val();
 
@@ -330,6 +333,8 @@ function handleStockBuyTransfer(event) {
   const fromUid = currentUser.uid;
   const fromRef = db.ref("users/" + fromUid);
   const toRef = db.ref("users/" + toUid);
+  console.log("[DEBUG] fromUid:", fromUid);
+
 
   toRef.once("value").then(toSnap => {
     const toData = toSnap.val();
@@ -402,6 +407,8 @@ function handleStockSellTransfer(event) {
   const fromUid = currentUser.uid;
   const fromRef = db.ref("users/" + fromUid);
   const toRef = db.ref("users/" + toUid);
+
+  console.log("[DEBUG] fromUid:", fromUid);
 
   toRef.once("value").then(toSnap => {
     const toData = toSnap.val();
