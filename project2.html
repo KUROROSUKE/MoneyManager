@@ -128,40 +128,33 @@
     }
 
     auth.onAuthStateChanged(async user => {
-      const userInfo = document.getElementById("userInfo");
       if (user) {
         currentUser = user;
-        userInfo.innerHTML = `✅ ログイン中：${user.displayName}（UID: ${user.uid}）`;
-
         const userRef = db.ref("users/" + user.uid);
         const snapshot = await userRef.once("value");
-        const val = snapshot.val();
 
-        if (!val || val.balance == null) {
+        if (!snapshot.exists()) {
           const uniqueName = await generateUniqueName();
           await userRef.set({
             name: uniqueName,
             balance: 1000,
             stock: 50,
-            stocks: {
-              "dummy": 0
-            }
+            stocks: {}
           });
-          nameInput.value = uniqueName;
-        } else {
-          nameInput.value = val.name || "";
+          console.log("✅ 初期化完了:", uniqueName);
         }
 
+        // ここから下の処理は初期化が確実に終わった後で呼ばれる
         loadUsers();
         loadUsersStocks();
         nameEditSection.style.display = "block";
       } else {
         currentUser = null;
-        userInfo.textContent = "ログインしていません。";
-        document.getElementById("receiverSelect").innerHTML = '<option value="">-- ユーザーを選択 --</option>';
+        document.getElementById("receiverSelect").innerHTML = '<option value=\"\">-- ユーザーを選択 --</option>';
         nameEditSection.style.display = "none";
       }
     });
+
 
     async function updateName() {
       const newName = nameInput.value.trim();
@@ -310,147 +303,147 @@
       });
     }
 
-// 完全な買い・売り処理（診断ログ＆型チェック強化バージョン）
+    // 完全な買い・売り処理（診断ログ＆型チェック強化バージョン）
 
-function handleStockBuyTransfer(event) {
-  event.preventDefault();
+    function handleStockBuyTransfer(event) {
+      event.preventDefault();
 
-  const toUid = document.getElementById("BuyUserStockOption").value;
-  const amount = parseInt(document.getElementById("BuyStockAmount").value, 10);
-  const message = document.getElementById("stockBuyMessage");
-  message.textContent = "";
+      const toUid = document.getElementById("BuyUserStockOption").value;
+      const amount = parseInt(document.getElementById("BuyStockAmount").value, 10);
+      const message = document.getElementById("stockBuyMessage");
+      message.textContent = "";
 
-  if (!currentUser) {
-    alert("ログインしてください！");
-    return;
-  }
-
-  if (!toUid || isNaN(amount) || amount <= 0) {
-    alert("有効な購入先と株数を入力してください");
-    return;
-  }
-
-  const fromUid = currentUser.uid;
-  const fromRef = db.ref("users/" + fromUid);
-  const toRef = db.ref("users/" + toUid);
-  console.log("[DEBUG] fromUid:", fromUid);
-
-
-  toRef.once("value").then(toSnap => {
-    const toData = toSnap.val();
-    const stockPrice = typeof toData?.stock === "number" ? toData.stock : 1;
-
-    fromRef.transaction(current => {
-      console.log("[DEBUG] トランザクション開始 current:", current);
-      if (!current || typeof current.balance !== "number") {
-        console.warn("⛔ balanceが不正または存在しない:", current?.balance);
+      if (!currentUser) {
+        alert("ログインしてください！");
         return;
       }
 
-      if (!current.stocks || typeof current.stocks !== "object") current.stocks = {};
-
-      const cost = stockPrice * amount;
-      if (current.balance < cost) {
-        console.warn("⛔ 残高不足:", current.balance, "<", cost);
+      if (!toUid || isNaN(amount) || amount <= 0) {
+        alert("有効な購入先と株数を入力してください");
         return;
       }
 
-      current.balance -= cost;
-      current.stocks[toUid] = (current.stocks[toUid] || 0) + amount;
+      const fromUid = currentUser.uid;
+      const fromRef = db.ref("users/" + fromUid);
+      const toRef = db.ref("users/" + toUid);
+      console.log("[DEBUG] fromUid:", fromUid);
 
-      return current;
-    }).then(result => {
-      console.log("[DEBUG] トランザクション結果:", result);
-      if (!result.committed) {
-        message.textContent = "❌ 自分の更新に失敗しました（残高不足・データ不正など）";
-        return;
-      }
 
-      toRef.transaction(current => {
-        if (!current || typeof current.balance !== "number") return current;
-        current.balance += stockPrice * amount;
-        return current;
-      }).then(toResult => {
-        if (!toResult.committed) {
-          message.textContent = "⚠️ 相手のトランザクション中止（リトライ推奨）";
-          return;
-        }
+      toRef.once("value").then(toSnap => {
+        const toData = toSnap.val();
+        const stockPrice = typeof toData?.stock === "number" ? toData.stock : 1;
 
-        message.textContent = "✅ 株を購入しました！";
-        loadUsersStocks();
+        fromRef.transaction(current => {
+          console.log("[DEBUG] トランザクション開始 current:", current);
+          if (!current || typeof current.balance !== "number") {
+            console.warn("⛔ balanceが不正または存在しない:", current?.balance);
+            return;
+          }
+
+          if (!current.stocks || typeof current.stocks !== "object") current.stocks = {};
+
+          const cost = stockPrice * amount;
+          if (current.balance < cost) {
+            console.warn("⛔ 残高不足:", current.balance, "<", cost);
+            return;
+          }
+
+          current.balance -= cost;
+          current.stocks[toUid] = (current.stocks[toUid] || 0) + amount;
+
+          return current;
+        }).then(result => {
+          console.log("[DEBUG] トランザクション結果:", result);
+          if (!result.committed) {
+            message.textContent = "❌ 自分の更新に失敗しました（残高不足・データ不正など）";
+            return;
+          }
+
+          toRef.transaction(current => {
+            if (!current || typeof current.balance !== "number") return current;
+            current.balance += stockPrice * amount;
+            return current;
+          }).then(toResult => {
+            if (!toResult.committed) {
+              message.textContent = "⚠️ 相手のトランザクション中止（リトライ推奨）";
+              return;
+            }
+
+            message.textContent = "✅ 株を購入しました！";
+            loadUsersStocks();
+          });
+        });
+      }).catch(error => {
+        console.error("[ERROR] 株購入エラー:", error);
+        message.textContent = "❌ エラー：" + error.message;
       });
-    });
-  }).catch(error => {
-    console.error("[ERROR] 株購入エラー:", error);
-    message.textContent = "❌ エラー：" + error.message;
-  });
-}
+    }
 
-function handleStockSellTransfer(event) {
-  event.preventDefault();
+    function handleStockSellTransfer(event) {
+      event.preventDefault();
 
-  const toUid = document.getElementById("SellUserStockOption").value;
-  const amount = parseInt(document.getElementById("SellStockAmount").value, 10);
-  const message = document.getElementById("stockSellMessage");
-  message.textContent = "";
+      const toUid = document.getElementById("SellUserStockOption").value;
+      const amount = parseInt(document.getElementById("SellStockAmount").value, 10);
+      const message = document.getElementById("stockSellMessage");
+      message.textContent = "";
 
-  if (!currentUser) {
-    alert("ログインしてください！");
-    return;
-  }
-
-  if (!toUid || isNaN(amount) || amount <= 0) {
-    alert("有効な売却先と株数を入力してください");
-    return;
-  }
-
-  const fromUid = currentUser.uid;
-  const fromRef = db.ref("users/" + fromUid);
-  const toRef = db.ref("users/" + toUid);
-
-  console.log("[DEBUG] fromUid:", fromUid);
-
-  toRef.once("value").then(toSnap => {
-    const toData = toSnap.val();
-    const stockPrice = typeof toData?.stock === "number" ? toData.stock : 1;
-
-    fromRef.transaction(current => {
-      if (!current || typeof current.balance !== "number") return;
-      if (!current.stocks || typeof current.stocks !== "object") return;
-
-      const owned = current.stocks[toUid];
-      if (typeof owned !== "number" || owned < amount) return;
-
-      current.balance += stockPrice * amount;
-      current.stocks[toUid] = owned - amount;
-      if (current.stocks[toUid] === 0) delete current.stocks[toUid];
-
-      return current;
-    }).then(result => {
-      if (!result.committed) {
-        message.textContent = "❌ 自分の更新に失敗しました（保有株不足など）";
+      if (!currentUser) {
+        alert("ログインしてください！");
         return;
       }
 
-      toRef.transaction(current => {
-        if (!current || typeof current.balance !== "number") return current;
-        current.balance -= stockPrice * amount;
-        return current;
-      }).then(toResult => {
-        if (!toResult.committed) {
-          message.textContent = "⚠️ 相手のトランザクション中止（リトライ推奨）";
-          return;
-        }
+      if (!toUid || isNaN(amount) || amount <= 0) {
+        alert("有効な売却先と株数を入力してください");
+        return;
+      }
 
-        message.textContent = "✅ 株を売却しました！";
-        loadUsersStocks();
+      const fromUid = currentUser.uid;
+      const fromRef = db.ref("users/" + fromUid);
+      const toRef = db.ref("users/" + toUid);
+
+      console.log("[DEBUG] fromUid:", fromUid);
+
+      toRef.once("value").then(toSnap => {
+        const toData = toSnap.val();
+        const stockPrice = typeof toData?.stock === "number" ? toData.stock : 1;
+
+        fromRef.transaction(current => {
+          if (!current || typeof current.balance !== "number") return;
+          if (!current.stocks || typeof current.stocks !== "object") return;
+
+          const owned = current.stocks[toUid];
+          if (typeof owned !== "number" || owned < amount) return;
+
+          current.balance += stockPrice * amount;
+          current.stocks[toUid] = owned - amount;
+          if (current.stocks[toUid] === 0) delete current.stocks[toUid];
+
+          return current;
+        }).then(result => {
+          if (!result.committed) {
+            message.textContent = "❌ 自分の更新に失敗しました（保有株不足など）";
+            return;
+          }
+
+          toRef.transaction(current => {
+            if (!current || typeof current.balance !== "number") return current;
+            current.balance -= stockPrice * amount;
+            return current;
+          }).then(toResult => {
+            if (!toResult.committed) {
+              message.textContent = "⚠️ 相手のトランザクション中止（リトライ推奨）";
+              return;
+            }
+
+            message.textContent = "✅ 株を売却しました！";
+            loadUsersStocks();
+          });
+        });
+      }).catch(error => {
+        console.error("[ERROR] 株売却エラー:", error);
+        message.textContent = "❌ エラー：" + error.message;
       });
-    });
-  }).catch(error => {
-    console.error("[ERROR] 株売却エラー:", error);
-    message.textContent = "❌ エラー：" + error.message;
-  });
-}
+    }
 
 
 
