@@ -289,13 +289,16 @@
         const users = snapshot.val();
         if (users && currentUser) {
           Object.entries(users).forEach(([uid, data]) => {
-            // 購入用セレクト
             if (uid !== currentUser.uid) {
-              const option = document.createElement("option");
-              option.value = uid;
-              option.textContent = `${data.name}（株価：${data.stock}株）`;
-              select1.appendChild(option);
-              select2.appendChild(option);
+              const option1 = document.createElement("option");
+              option1.value = uid;
+              option1.textContent = `${data.name}（株：${data.stock}株）`;
+              select1.appendChild(option1);
+
+              const option2 = document.createElement("option");
+              option2.value = uid;
+              option2.textContent = `${data.name}（株：${data.stock}株）`;
+              select2.appendChild(option2);
             }
           });
         }
