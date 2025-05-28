@@ -331,9 +331,9 @@ function handleStockBuyTransfer(event) {
     const stockPrice = toData?.stock || 1;
 
     fromRef.transaction(current => {
-      if (!current || typeof current.balance !== "number") return current;
+      if (!current || typeof current.balance !== "number") return;
       const cost = stockPrice * amount;
-      if (current.balance < cost) return current;
+      if (current.balance < cost) return;
 
       current.balance -= cost;
       if (!current.stocks) current.stocks = {};
@@ -391,9 +391,11 @@ function handleStockSellTransfer(event) {
     const stockPrice = toData?.stock || 1;
 
     fromRef.transaction(current => {
-      if (!current || typeof current.balance !== "number" || !current.stocks) return current;
-      const owned = current.stocks[toUid] || 0;
-      if (owned < amount) return current;
+      if (!current || typeof current.balance !== "number") return;
+      if (!current.stocks || typeof current.stocks[toUid] !== "number") return;
+
+      const owned = current.stocks[toUid];
+      if (owned < amount) return;
 
       current.balance += stockPrice * amount;
       current.stocks[toUid] = owned - amount;
@@ -424,7 +426,6 @@ function handleStockSellTransfer(event) {
     message.textContent = "❌ エラー：" + error.message;
   });
 }
-
   </script>
 </body>
 </html>
