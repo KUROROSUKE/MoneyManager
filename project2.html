@@ -45,33 +45,38 @@
 
   <hr>
   <h2>📈 株式売買</h2> <!--- BuyUserStockOption -->
-  <form onsubmit="handleStockBuyTransfer(event)">
-    <label>買う：</label><br>
-    <select id="BuyUserStockOption" required>
+  <!-- 株購入フォーム -->
+  <form id="buyForm">
+    <h3>株を購入</h3>
+    <label for="BuyUserStockOption">購入対象ユーザー:</label>
+    <select id="BuyUserStockOption">
       <option value="">-- ユーザーを選択 --</option>
-    </select><br><br>
+      <!-- ユーザーのオプションが動的に追加されます -->
+    </select>
 
-    <label>株数：</label><br>
-    <input type="number" id="BuyStockAmount" required><br><br>
+    <label for="BuyStockAmount">株数:</label>
+    <input type="number" id="BuyStockAmount" min="1" required>
 
-    <button type="submit">購入する</button>
+    <button type="submit">購入</button>
+    <div id="stockBuyMessage"></div>
   </form>
-  <div id="stockBuyMessage"></div>
 
-  <hr>
-
-  <form onsubmit="handleStockSellTransfer(event)">
-    <label>売る：</label><br>
-    <select id="SellUserStockOption" required>
+  <!-- 株売却フォーム -->
+  <form id="sellForm">
+    <h3>株を売却</h3>
+    <label for="SellUserStockOption">売却対象ユーザー:</label>
+    <select id="SellUserStockOption">
       <option value="">-- ユーザーを選択 --</option>
-    </select><br><br>
+      <!-- ユーザーのオプションが動的に追加されます -->
+    </select>
 
-    <label>株数：</label><br>
-    <input type="number" id="SellStockAmount" required><br><br>
+    <label for="SellStockAmount">株数:</label>
+    <input type="number" id="SellStockAmount" min="1" required>
 
-    <button type="submit">売却する</button>
+    <button type="submit">売却</button>
+    <div id="stockSellMessage"></div>
   </form>
-  <div id="stockSellMessage"></div>
+
 
   <script>
     const firebaseConfig = {
