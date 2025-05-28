@@ -149,10 +149,9 @@
           console.log("✅ 初期化完了:", uniqueName);
         }
 
-        // 初期化が完了したあとにのみイベント登録を行う
+        // ここで登録すれば、確実に初期化完了後に発火
         const buyForm = document.getElementById("buyForm");
         if (buyForm) buyForm.addEventListener("submit", handleStockBuyTransfer);
-
         const sellForm = document.getElementById("sellForm");
         if (sellForm) sellForm.addEventListener("submit", handleStockSellTransfer);
 
@@ -241,16 +240,15 @@
       console.log("[DEBUG] fromUid:", fromUid);
 
 
-      fromRef.once("value").then(snapshot => {
-        const fromData = snapshot.val();
-
-        if (!fromData || typeof fromData.balance !== "number") {
-          message.textContent = "❌ 自分のデータが見つかりません";
+      fromRef.once("value").then(fromSnap => {
+        if (!fromSnap.exists()) {
+          message.textContent = "❌ 自分のデータが存在しません";
           return;
         }
 
-        if (fromData.balance < amount) {
-          message.textContent = "❌ 残高不足です";
+        const fromData = fromSnap.val();
+        if (typeof fromData.balance !== "number") {
+          message.textContent = "❌ 残高データが不正です";
           return;
         }
 
