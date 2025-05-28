@@ -342,6 +342,7 @@ function handleStockBuyTransfer(event) {
 
       return current;
     }).then(result => {
+      console.log(result);
       if (!result.committed) {
         message.textContent = "❌ 自分の更新に失敗しました（残高不足など）";
         return;
