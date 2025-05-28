@@ -328,26 +328,28 @@
 
       toRef.once("value").then(toSnap => {
         const toData = toSnap.val();
-        const stockPrice = toData.stock || 1; // 株価とみなす
+        const stockPrice = toData?.stock || 1;  // 購入先の株価（デフォルト1）
 
         fromRef.transaction(current => {
-          if (!current || typeof current.balance !== "number") return current;
+          if (!current || typeof current.balance !== "number") return;
           const cost = stockPrice * amount;
-          if (current.balance < cost) return; // 残高不足ならキャンセル
+          if (current.balance < cost) return;
 
           current.balance -= cost;
-          current.stock = (current.stock || 0) + amount;
+
+          if (!current.stocks) current.stocks = {};
+          current.stocks[toUid] = (current.stocks[toUid] || 0) + amount;
+
           return current;
         }).then(result => {
           if (!result.committed) {
-            message.textContent = "❌ トランザクション中止（自分）";
+            message.textContent = "❌ 自分の更新に失敗しました";
             return;
           }
 
           toRef.transaction(current => {
-            if (!current || typeof current.balance !== "number") return current;
+            if (!current || typeof current.balance !== "number") return;
             current.balance += stockPrice * amount;
-            current.stock = (current.stock || 0) - amount;
             return current;
           }).then(toResult => {
             if (!toResult.committed) {
@@ -360,10 +362,9 @@
           });
         });
       }).catch(error => {
-        message.textContent = "❌ 処理中エラー：" + error.message;
+        message.textContent = "❌ エラー：" + error.message;
       });
     }
-
 
     function handleStockSellTransfer(event) {
       event.preventDefault();
@@ -387,51 +388,43 @@
       const fromRef = db.ref("users/" + fromUid);
       const toRef = db.ref("users/" + toUid);
 
-      fromRef.once("value").then(fromSnap => {
-        const fromData = fromSnap.val();
-        if (!fromData || typeof fromData.stock !== "number" || typeof fromData.balance !== "number") {
-          message.textContent = "❌ 自分のデータが不正です";
-          return;
-        }
+      toRef.once("value").then(toSnap => {
+        const toData = toSnap.val();
+        const stockPrice = toData?.stock || 1; // 売却先ユーザーの株価
 
-        if (fromData.stock < amount) {
-          message.textContent = "❌ 保有株が不足しています";
-          return;
-        }
+        fromRef.transaction(current => {
+          if (!current || typeof current.balance !== "number" || !current.stocks) return;
 
-        toRef.once("value").then(toSnap => {
-          const toData = toSnap.val();
-          const stockPrice = toData?.stock || 1;
+          const owned = current.stocks[toUid] || 0;
+          if (owned < amount) return;
 
-          fromRef.transaction(current => {
-            if (!current || typeof current.balance !== "number" || typeof current.stock !== "number") return current;
-            current.balance += stockPrice * amount;
-            current.stock -= amount;
+          current.balance += stockPrice * amount;
+          current.stocks[toUid] = owned - amount;
+          if (current.stocks[toUid] === 0) delete current.stocks[toUid];
+
+          return current;
+        }).then(result => {
+          if (!result.committed) {
+            message.textContent = "❌ 自分の更新に失敗しました";
+            return;
+          }
+
+          toRef.transaction(current => {
+            if (!current || typeof current.balance !== "number") return;
+            current.balance -= stockPrice * amount;
             return current;
-          }).then(result => {
-            if (!result.committed) {
-              message.textContent = "❌ トランザクション中止（自分）";
+          }).then(toResult => {
+            if (!toResult.committed) {
+              message.textContent = "⚠️ 相手のトランザクション中止（リトライ推奨）";
               return;
             }
 
-            toRef.transaction(current => {
-              if (!current || typeof current.balance !== "number" || typeof current.stock !== "number") return current;
-              current.balance -= stockPrice * amount;
-              current.stock += amount;
-              return current;
-            }).then(toResult => {
-              if (!toResult.committed) {
-                message.textContent = "⚠️ 相手のトランザクション中止（リトライ推奨）";
-                return;
-              }
-
-              message.textContent = "✅ 株を売却しました！";
-              loadUsersStocks();
-            });
+            message.textContent = "✅ 株を売却しました！";
+            loadUsersStocks();
           });
         });
       }).catch(error => {
-        message.textContent = "❌ 処理中エラー：" + error.message;
+        message.textContent = "❌ エラー：" + error.message;
       });
     }
 
