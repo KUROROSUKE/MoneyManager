@@ -144,13 +144,16 @@
           console.log("✅ 初期化完了:", uniqueName);
         }
 
-        // ここから下の処理は初期化が確実に終わった後で呼ばれる
+        // 初期化が完了したあとにのみイベント登録を行う
+        document.getElementById("buyForm").addEventListener("submit", handleStockBuyTransfer);
+        document.getElementById("sellForm").addEventListener("submit", handleStockSellTransfer);
+
         loadUsers();
         loadUsersStocks();
         nameEditSection.style.display = "block";
       } else {
         currentUser = null;
-        document.getElementById("receiverSelect").innerHTML = '<option value=\"\">-- ユーザーを選択 --</option>';
+        document.getElementById("receiverSelect").innerHTML = '<option value="">-- ユーザーを選択 --</option>';
         nameEditSection.style.display = "none";
       }
     });
@@ -303,8 +306,6 @@
       });
     }
 
-    // 完全な買い・売り処理（診断ログ＆型チェック強化バージョン）
-
     function handleStockBuyTransfer(event) {
       event.preventDefault();
 
@@ -324,10 +325,9 @@
       }
 
       const fromUid = currentUser.uid;
+      console.log("[DEBUG] fromUid:", fromUid);
       const fromRef = db.ref("users/" + fromUid);
       const toRef = db.ref("users/" + toUid);
-      console.log("[DEBUG] fromUid:", fromUid);
-
 
       toRef.once("value").then(toSnap => {
         const toData = toSnap.val();
@@ -400,8 +400,6 @@
       const fromUid = currentUser.uid;
       const fromRef = db.ref("users/" + fromUid);
       const toRef = db.ref("users/" + toUid);
-
-      console.log("[DEBUG] fromUid:", fromUid);
 
       toRef.once("value").then(toSnap => {
         const toData = toSnap.val();
