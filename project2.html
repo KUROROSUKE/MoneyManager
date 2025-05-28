@@ -317,6 +317,7 @@
       event.preventDefault();
 
       const toUid = document.getElementById("BuyUserStockOption").value;
+      console.log(toUid);
       const amount = parseInt(document.getElementById("BuyStockAmount").value, 10);
       const message = document.getElementById("stockBuyMessage");
       message.textContent = "";
@@ -337,7 +338,6 @@
       const toRef = db.ref("users/" + toUid);
       console.log("[DEBUG] toRef:", toRef);
       
-
       toRef.once("value").then(toSnap => {
         const toData = toSnap.val();
         const stockPrice = typeof toData?.stock === "number" ? toData.stock : 1;
