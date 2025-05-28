@@ -280,7 +280,11 @@
 
 
     function loadUsersStocks() {
-      const userStocksList = document.getElementById("BuyUserStockOption");
+      const select1 = document.getElementById("BuyUserStockOption");
+      const select2 = document.getElementById("SellUserStockOption");
+      select1.innerHTML = '<option value="">-- ユーザーを選択 --</option>';
+      select2.innerHTML = '<option value="">-- ユーザーを選択 --</option>';
+
       db.ref("users").once("value").then(snapshot => {
         const users = snapshot.val();
         if (users && currentUser) {
@@ -290,13 +294,9 @@
               const option = document.createElement("option");
               option.value = uid;
               option.textContent = `${data.name}（株価：${data.balance}円）`;
-              select.appendChild(option);
+              select1.appendChild(option);
+              select2.appendChild(option);
             }
-
-            // 株価一覧表示
-            const li = document.createElement("li");
-            li.textContent = `${data.name}：${data.balance}円`;
-            userStocksList.appendChild(li);
           });
         }
       });
