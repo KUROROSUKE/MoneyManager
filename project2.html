@@ -346,6 +346,7 @@
             return;
           }
 
+          console.log(fromRef);
           fromRef.transaction(current => {
             console.log("[DEBUG] トランザクション開始 current:", current);
             if (!current || typeof current.balance !== "number") {
