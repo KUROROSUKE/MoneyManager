@@ -150,6 +150,7 @@
         }
 
         loadUsers();
+        loadUsersStocks();
         nameEditSection.style.display = "block";
       } else {
         currentUser = null;
@@ -359,7 +360,7 @@
             }
 
             message.textContent = "✅ 送金成功！";
-            loadUsers();
+            loadUsersStocks();
           });
         });
       }).catch(error => {
@@ -425,7 +426,7 @@
             }
 
             message.textContent = "✅ 送金成功！";
-            loadUsers();
+            loadUsersStocks();
           });
         });
       }).catch(error => {
