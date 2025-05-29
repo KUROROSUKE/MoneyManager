@@ -294,7 +294,7 @@ document.getElementById("BuyStock").addEventListener("click", async function () 
 
     try {
         const stockSnapshot = await toRef.once("value");
-        const stockPrice = stockSnapshot.val()?.stock;
+        const stockPrice = stockSnapshot.val()?.price;
 
         if (typeof stockPrice !== "number" || isNaN(stockPrice)) {
             message.textContent = "❌ 株価が無効です";
@@ -358,7 +358,7 @@ document.getElementById("SellStock").addEventListener("click", async function ()
 
     try {
         const stockSnapshot = await toRef.once("value");
-        const stockPrice = stockSnapshot.val()?.stock;
+        const stockPrice = stockSnapshot.val()?.price;
 
         if (typeof stockPrice !== "number" || isNaN(stockPrice)) {
             message.textContent = "❌ 株価が無効です";
