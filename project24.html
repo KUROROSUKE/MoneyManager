@@ -44,6 +44,7 @@
   <ul id="userBalanceList"></ul>
 
   <hr>
+  <p id="MyStocks"></p>
 
   <div>
     <label>株式：</label><br>
@@ -178,6 +179,7 @@ function loadUsers() {
     const select = document.getElementById("receiverSelect");
     const StockSelect = document.getElementById("UsersStock");
     const userBalanceList = document.getElementById("userBalanceList");
+    const MyStocks = document.getElementById("MyStocks");
 
     db.ref("users").on("value", (snapshot) => {
         const users = snapshot.val();
@@ -187,19 +189,22 @@ function loadUsers() {
             userBalanceList.innerHTML = '';
             select.innerHTML = '<option value="">-- ユーザーを選択 --</option>';
             StockSelect.innerHTML = '<option value="">-- ユーザーを選択 --</option>';
+            
 
             Object.entries(users).forEach(([uid, data]) => {
                 // 送金先・株式セレクトボックス
                 if (uid !== currentUser.uid) {
-                    const option = document.createElement("option");
-                    option.value = uid;
-                    option.textContent = `${data.name}（残高：${data.balance} Eed）`;
-                    select.appendChild(option);
+                  const option = document.createElement("option");
+                  option.value = uid;
+                  option.textContent = `${data.name}（残高：${data.balance} Eed）`;
+                  select.appendChild(option);
 
-                    const option2 = document.createElement("option");
-                    option2.value = uid;
-                    option2.textContent = `${data.name}（株価：${data.price ?? 0} Eed）`;
-                    StockSelect.appendChild(option2);
+                  const option2 = document.createElement("option");
+                  option2.value = uid;
+                  option2.textContent = `${data.name}（株価：${data.price ?? 0} Eed）`;
+                  StockSelect.appendChild(option2);
+                } else if (uid===currentUser.uid) {
+                  MyStocks.innerHTML = `自分の株価：${data.price}`;
                 }
 
                 // 資金一覧表示
