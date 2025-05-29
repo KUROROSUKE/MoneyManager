@@ -379,7 +379,7 @@ document.getElementById("SellStock").addEventListener("click", async function ()
         await toRef.transaction(current => {
             if (!current || typeof current.balance !== "number") return current;
             current.balance -= StockAmount * stockPrice;
-            current.price -= StockAmount-1;
+            current.price -= StockAmount+1;
             return current;
         });
 
