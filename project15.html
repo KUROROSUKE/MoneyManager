@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>送金（選択式・安定版＋ランダム名前＋一覧表示）</title>
+  <meta charset="UTF-8" />
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-database-compat.js"></script>
+</head>
+<body>
+  <h1>💸 ユーザー間送金（ランダム名）</h1>
+
+  <button onclick="login()">🔑 Googleでログイン</button>
+  <button onclick="logout()">🚪 ログアウト</button>
+  <div id="userInfo">ログインしていません</div>
+
+  <hr>
+
+  <div id="nameEditSection" style="display:none;">
+    <label>表示名を変更：</label><br>
+    <input type="text" id="nameInput" />
+    <button onclick="updateName()">名前を保存</button>
+    <div id="nameMessage"></div>
+  </div>
+
+  <hr>
+
+  <form onsubmit="handleTransfer(event)">
+    <label>送金先ユーザー：</label><br>
+    <select id="receiverSelect" required>
+      <option value="">-- ユーザーを選択 --</option>
+    </select><br><br>
+
+    <label>金額：</label><br>
+    <input type="number" id="amount" required><br><br>
+
+    <button type="submit">送金する</button>
+  </form>
+
+  <div id="message"></div>
+
+  <hr>
+  <h2>📊 現在のユーザー資金一覧</h2>
+  <ul id="userBalanceList"></ul>
+
+  <hr>
+
+  <div>
+    <label>株式：</label><br>
+    <select id="UsersStock" required>
+      <option value="">-- ユーザーを選択 --</option>
+    </select><br><br>
+
+    <label>株数：</label><br>
+    <input type="number" id="StockAmount" required><br><br>
+
+    <button id="BuyStock" >購入する</button>
+    <button id="SellStock">売却する</button>
+
+    <div id="StockMessage"></div>
+  </div>
+
+  <script src="main15.js"></script>
+</body>
+</html>
