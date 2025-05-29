@@ -193,18 +193,18 @@ function loadUsers() {
                 if (uid !== currentUser.uid) {
                     const option = document.createElement("option");
                     option.value = uid;
-                    option.textContent = `${data.name}（残高：${data.balance}円）`;
+                    option.textContent = `${data.name}（残高：${data.balance} Eed）`;
                     select.appendChild(option);
 
                     const option2 = document.createElement("option");
                     option2.value = uid;
-                    option2.textContent = `${data.name}（株価：${data.price ?? 0}円）`;
+                    option2.textContent = `${data.name}（株価：${data.price ?? 0} Eed）`;
                     StockSelect.appendChild(option2);
                 }
 
                 // 資金一覧表示
                 const li = document.createElement("li");
-                li.textContent = `${data.name}：${data.balance ?? 0}円`;
+                li.textContent = `${data.name}：${data.balance ?? 0} Eed`;
                 userBalanceList.appendChild(li);
             });
         }
