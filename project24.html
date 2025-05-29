@@ -318,17 +318,17 @@ document.getElementById("BuyStock").addEventListener("click", async function () 
             return;
         }
 
-        await fromRef.transaction(current => {
-            if (!current || typeof current.balance !== "number") return current;
-            current.balance -= totalPrice;
-            current[toUid] = (current[toUid] || 0) + StockAmount;
-            return current;
-        });
-
         await toRef.transaction(current => {
             if (!current || typeof current.balance !== "number") return current;
             current.balance += totalPrice;
             current.price += StockAmount;
+            return current;
+        });
+
+        await fromRef.transaction(current => {
+            if (!current || typeof current.balance !== "number") return current;
+            current.balance -= totalPrice;
+            current[toUid] = (current[toUid] || 0) + StockAmount;
             return current;
         });
 
@@ -376,17 +376,17 @@ document.getElementById("SellStock").addEventListener("click", async function ()
             return;
         }
 
-        await fromRef.transaction(current => {
-            if (!current || typeof current.balance !== "number") return current;
-            current.balance += StockAmount * stockPrice;
-            current[toUid] -= StockAmount-1;
-            return current;
-        });
-
         await toRef.transaction(current => {
             if (!current || typeof current.balance !== "number") return current;
             current.balance -= StockAmount * stockPrice;
-            current.price -= StockAmount+1;
+            current.price -= StockAmount;
+            return current;
+        });
+
+        await fromRef.transaction(current => {
+            if (!current || typeof current.balance !== "number") return current;
+            current.balance += StockAmount * stockPrice;
+            current[toUid] -= StockAmount;
             return current;
         });
 
