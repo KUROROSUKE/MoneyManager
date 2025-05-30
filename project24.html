@@ -11,6 +11,15 @@
   <h1>💸 ユーザー間送金（ランダム名）</h1>
 
   <button onclick="login()">🔑 Googleでログイン</button>
+  <h3>📧 メールアドレスでログイン</h3>
+<div>
+  <input type="email" id="email" placeholder="メールアドレス" /><br>
+  <input type="password" id="password" placeholder="パスワード" /><br>
+  <button onclick="loginWithEmail()">ログイン</button>
+  <button onclick="registerWithEmail()">新規登録</button>
+  <div id="emailMessage"></div>
+</div>
+
   <button onclick="logout()">🚪 ログアウト</button>
   <div id="userInfo">ログインしていません</div>
 
@@ -434,6 +443,39 @@ document.getElementById("UsersStock").addEventListener("change", async function(
         display.textContent = "❌ エラー";
     }
 });
+function loginWithEmail() {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+    const message = document.getElementById("emailMessage");
+    message.textContent = "";
+
+    if (!email || !password) {
+        message.textContent = "❌ メールアドレスとパスワードを入力してください";
+        return;
+    }
+
+    auth.signInWithEmailAndPassword(email, password)
+    .catch(error => {
+        message.textContent = "❌ ログイン失敗：" + error.message;
+    });
+}
+
+function registerWithEmail() {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+    const message = document.getElementById("emailMessage");
+    message.textContent = "";
+
+    if (!email || !password) {
+        message.textContent = "❌ メールアドレスとパスワードを入力してください";
+        return;
+    }
+
+    auth.createUserWithEmailAndPassword(email, password)
+    .catch(error => {
+        message.textContent = "❌ 登録失敗：" + error.message;
+    });
+}
 
   </script>
 </body>
