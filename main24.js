@@ -1,11 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>送金（選択式・安定版＋ランダム名前＋一覧表示＋平均株価チャート 軽量版）</title>
+  <meta charset="UTF-8" />
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-database-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <h1>💸 ユーザー間送金（ランダム名＋平均株価チャート 軽量版）</h1>
+
+  <button onclick="login()">🔑 Googleでログイン</button>
+  <h3>📧 メールアドレスでログイン</h3>
+<div>
+  <input type="email" id="email" placeholder="メールアドレス" /><br>
+  <input type="password" id="password" placeholder="パスワード" /><br>
+  <button onclick="loginWithEmail()">ログイン</button>
+  <button onclick="registerWithEmail()">新規登録</button>
+  <div id="emailMessage"></div>
+</div>
+
+  <button onclick="logout()">🚪 ログアウト</button>
+  <div id="userInfo">ログインしていません</div>
+
+  <hr>
+
+  <div id="nameEditSection" style="display:none;">
+    <label>表示名を変更：</label><br>
+    <input type="text" id="nameInput" />
+    <button onclick="updateName()">名前を保存</button>
+    <div id="nameMessage"></div>
+  </div>
+
+  <hr>
+
+  <form onsubmit="handleTransfer(event)">
+    <label>送金先ユーザー：</label><br>
+    <select id="receiverSelect" required>
+      <option value="">-- ユーザーを選択 --</option>
+    </select><br><br>
+
+    <label>金額：</label><br>
+    <input type="number" id="amount" required><br><br>
+
+    <button type="submit">送金する</button>
+  </form>
+
+  <div id="message"></div>
+
+  <hr>
+  <h2>📊 現在のユーザー資金一覧</h2>
+  <table id="userBalanceTable" border="1" cellpadding="5">
+    <thead>
+      <tr>
+        <th>名前</th>
+        <th>残高 (Eed)</th>
+      </tr>
+    </thead>
+    <tbody id="userBalanceList"></tbody>
+  </table>
+
+  <hr>
+  <p id="MyStocks"></p>
+  <p id="StockAverage"></p>
+
+  <div>
+    <label>株式：</label><br>
+    <select id="UsersStock" required>
+      <option value="">-- ユーザーを選択 --</option>
+    </select><br><br>
+
+    <label>現在株数：</label><br>
+    <p id="UsersStockAmount"></p>
+
+    <label>売買株数：</label><br>
+    <input type="number" id="StockAmount" required><br><br>
+
+    <button id="BuyStock">購入する</button>
+    <button id="SellStock">売却する</button>
+
+    <div id="StockMessage"></div>
+  </div>
+
+  <hr>
+  <h2>📈 平均株価の推移</h2>
+  <canvas id="averageStockChart" width="400" height="200"></canvas>
+
+  <script>
 const firebaseConfig = {
-    apiKey: "AIzaSyC_8ZxABdbxPH8lQGBPuCuZZIk_hLKi6OI",
-    authDomain: "moneymanager-a0e97.firebaseapp.com",
-    databaseURL: "https://moneymanager-a0e97-default-rtdb.firebaseio.com",
-    projectId: "moneymanager-a0e97",
-    storageBucket: "moneymanager-a0e97.appspot.com",
-    messagingSenderId: "649411038344",
-    appId: "1:649411038344:web:bacd8a5c7a743e6edf633d"
+  apiKey: "AIzaSyC_8ZxABdbxPH8lQGBPuCuZZIk_hLKi6OI",
+  authDomain: "moneymanager-a0e97.firebaseapp.com",
+  databaseURL: "https://moneymanager-a0e97-default-rtdb.firebaseio.com",
+  projectId: "moneymanager-a0e97",
+  storageBucket: "moneymanager-a0e97.appspot.com",
+  messagingSenderId: "649411038344",
+  appId: "1:649411038344:web:bacd8a5c7a743e6edf633d"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -20,40 +110,40 @@ const nameMessage = document.getElementById("nameMessage");
 const userBalanceList = document.getElementById("userBalanceList");
 
 function getRandomName() {
-    const animals = ["neko", "inu", "tori", "kuma", "saru", "kitsune", "tanuki", "shika", "tako", "penguin"];
-    const rand = animals[Math.floor(Math.random() * animals.length)] + Math.floor(Math.random() * 1000);
-    return rand;
+  const animals = ["neko", "inu", "tori", "kuma", "saru", "kitsune", "tanuki", "shika", "tako", "penguin"];
+  const rand = animals[Math.floor(Math.random() * animals.length)] + Math.floor(Math.random() * 1000);
+  return rand;
 }
 
 async function getAllNames() {
-    const snapshot = await db.ref("users").once("value");
-    const users = snapshot.val();
-    return users ? Object.values(users).map(u => u.name) : [];
+  const snapshot = await db.ref("users").once("value");
+  const users = snapshot.val();
+  return users ? Object.values(users).map(u => u.name) : [];
 }
 
 async function generateUniqueName() {
-    const existingNames = await getAllNames();
-    let name;
-    do {
+  const existingNames = await getAllNames();
+  let name;
+  do {
     name = getRandomName();
-    } while (existingNames.includes(name));
-    return name;
+  } while (existingNames.includes(name));
+  return name;
 }
 
 function login() {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    auth.signInWithPopup(provider).catch(error => {
-    alert("ログイン失敗：" + error.message);
-    });
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch(error => {
+  alert("ログイン失敗：" + error.message);
+  });
 }
 
 function logout() {
-    auth.signOut();
+  auth.signOut();
 }
 
 auth.onAuthStateChanged(async user => {
-    const userInfo = document.getElementById("userInfo");
-    if (user) {
+  const userInfo = document.getElementById("userInfo");
+  if (user) {
     currentUser = user;
     userInfo.innerHTML = `✅ ログイン中：${user.displayName}（UID: ${user.uid}）`;
 
@@ -62,303 +152,413 @@ auth.onAuthStateChanged(async user => {
     const val = snapshot.val();
 
     if (!val || val.balance == null) {
-        const uniqueName = await generateUniqueName();
-        await userRef.set({
-        name: uniqueName,
-        balance: 1000,
-        stock: 0,
-        price: 100
-        });
-        nameInput.value = uniqueName;
+      const uniqueName = await generateUniqueName();
+      await userRef.set({
+      name: uniqueName,
+      balance: 1000,
+      stock: 0,
+      price: 100
+      });
+      nameInput.value = uniqueName;
     } else {
-        nameInput.value = val.name || "";
+      nameInput.value = val.name || "";
     }
 
     loadUsers();
     nameEditSection.style.display = "block";
-    } else {
+  } else {
     currentUser = null;
     userInfo.textContent = "ログインしていません。";
     document.getElementById("receiverSelect").innerHTML = '<option value="">-- ユーザーを選択 --</option>';
     nameEditSection.style.display = "none";
-    }
+  }
 });
 
 async function updateName() {
-    const newName = nameInput.value.trim();
-    if (!newName) {
+  const newName = nameInput.value.trim();
+  if (!newName) {
     nameMessage.textContent = "❌ 空の名前は使えません";
     return;
-    }
+  }
 
-    const existingNames = await getAllNames();
-    if (existingNames.includes(newName)) {
+  const existingNames = await getAllNames();
+  if (existingNames.includes(newName)) {
     nameMessage.textContent = "❌ この名前は既に使われています";
     return;
-    }
+  }
 
-    const userRef = db.ref("users/" + currentUser.uid);
-    userRef.update({ name: newName })
-    .then(() => {
-        nameMessage.textContent = "✅ 名前を更新しました";
-        loadUsers();
-    })
-    .catch(error => {
-        nameMessage.textContent = "❌ エラー：" + error.message;
-    });
+  const userRef = db.ref("users/" + currentUser.uid);
+  userRef.update({ name: newName })
+  .then(() => {
+    nameMessage.textContent = "✅ 名前を更新しました";
+    loadUsers();
+  })
+  .catch(error => {
+    nameMessage.textContent = "❌ エラー：" + error.message;
+  });
 }
 
 function loadUsers() {
-    const select = document.getElementById("receiverSelect");
-    const StockSelect = document.getElementById("UsersStock");
-    const userBalanceList = document.getElementById("userBalanceList");
+  const select = document.getElementById("receiverSelect");
+  const StockSelect = document.getElementById("UsersStock");
+  const userBalanceList = document.getElementById("userBalanceList");
+  const MyStocks = document.getElementById("MyStocks");
 
-    db.ref("users").on("value", (snapshot) => {
-        const users = snapshot.val();
+  db.ref("users").on("value", (snapshot) => {
+    const users = snapshot.val();
 
-        if (users && currentUser) {
-            // 🔁 ここでリセット（ループ外！）
-            userBalanceList.innerHTML = '';
-            select.innerHTML = '<option value="">-- ユーザーを選択 --</option>';
-            StockSelect.innerHTML = '<option value="">-- ユーザーを選択 --</option>';
+    if (users && currentUser) {
+      // セレクトボックス・テーブルのリセット
+      userBalanceList.innerHTML = '';
+      select.innerHTML = '<option value="">-- ユーザーを選択 --</option>';
+      StockSelect.innerHTML = '<option value="">-- ユーザーを選択 --</option>';
+      
+      let AllStockAmounts = 0;
+      let usersNum = 0;
 
-            Object.entries(users).forEach(([uid, data]) => {
-                // 送金先・株式セレクトボックス
-                if (uid !== currentUser.uid) {
-                    const option = document.createElement("option");
-                    option.value = uid;
-                    option.textContent = `${data.name}（残高：${data.balance}円）`;
-                    select.appendChild(option);
+      Object.entries(users).forEach(([uid, data]) => {
+        // 送金先・株式セレクトボックスの更新
+        if (uid !== currentUser.uid) {
+          const option = document.createElement("option");
+          option.value = uid;
+          option.textContent = `${data.name}（残高：${data.balance} Eed）`;
+          select.appendChild(option);
 
-                    const option2 = document.createElement("option");
-                    option2.value = uid;
-                    option2.textContent = `${data.name}（株価：${data.stock ?? 0}円）`;
-                    StockSelect.appendChild(option2);
-                }
+          const option2 = document.createElement("option");
+          option2.value = uid;
+          option2.textContent = `${data.name}（株価：${data.price ?? 0} Eed）`;
+          StockSelect.appendChild(option2);
 
-                // 資金一覧表示
-                const li = document.createElement("li");
-                li.textContent = `${data.name}：${data.balance ?? 0}円`;
-                userBalanceList.appendChild(li);
-            });
+          AllStockAmounts += data.price;
+          usersNum += 1;
+          
+        } else {
+          MyStocks.innerHTML = `自分の株価：${data.price}`;
+          AllStockAmounts += data.price;
+          usersNum += 1;
         }
-    }, (error) => {
-        console.error("ユーザーデータの読み込みエラー:", error);
-    });
+
+        // 資金一覧（表形式）
+        const tr = document.createElement("tr");
+        const tdName = document.createElement("td");
+        const tdBalance = document.createElement("td");
+
+        tdName.textContent = data.name;
+        tdBalance.textContent = `${data.balance ?? 0} Eed`;
+
+        tr.appendChild(tdName);
+        tr.appendChild(tdBalance);
+        userBalanceList.appendChild(tr);
+      });
+
+      let AllUsersStockAverage = AllStockAmounts / usersNum;
+      document.getElementById("StockAverage").innerHTML = `平均株価：${AllUsersStockAverage}`;
+    }
+  }, (error) => {
+    console.error("ユーザーデータの読み込みエラー:", error);
+  });
 }
 
 function handleTransfer(event) {
-    event.preventDefault();
+  event.preventDefault();
 
-    const toUid = document.getElementById("receiverSelect").value;
-    const amount = parseInt(document.getElementById("amount").value, 10);
-    const message = document.getElementById("message");
-    message.textContent = "";
+  const toUid = document.getElementById("receiverSelect").value;
+  const amount = parseInt(document.getElementById("amount").value, 10);
+  const message = document.getElementById("message");
+  message.textContent = "";
 
-    if (!currentUser) {
-    alert("ログインしてください！");
-    return;
+  if (!currentUser) {
+  alert("ログインしてください！");
+  return;
+  }
+
+  if (!toUid || isNaN(amount) || amount <= 0) {
+  alert("有効な送金先と金額を入力してください");
+  return;
+  }
+
+  const fromUid = currentUser.uid;
+  const fromRef = db.ref("users/" + fromUid);
+  const toRef = db.ref("users/" + toUid);
+
+  fromRef.once("value").then((snapshot) => {
+    const fromData = snapshot.val();
+
+    if (!fromData || typeof fromData.balance !== "number") {
+      message.textContent = "❌ 自分のデータが見つかりません";
+      return;
     }
 
-    if (!toUid || isNaN(amount) || amount <= 0) {
-    alert("有効な送金先と金額を入力してください");
-    return;
+    if (fromData.balance < amount) {
+      message.textContent = "❌ 残高不足です";
+      return;
     }
 
-    const fromUid = currentUser.uid;
-    const fromRef = db.ref("users/" + fromUid);
-    const toRef = db.ref("users/" + toUid);
+    fromRef.transaction(current => {
+      if (!current || typeof current.balance !== "number") return current;
+      current.balance -= amount;
+      return current;
+    }).then(result => {
+      if (!result.committed) {
+      message.textContent = "❌ トランザクション中止（自分）";
+      return;
+      }
 
-    fromRef.once("value").then((snapshot) => {
-        const fromData = snapshot.val();
+      toRef.transaction(current => {
+      if (!current || typeof current.balance !== "number") return current;
+      current.balance += amount;
+      return current;
+      }).then(toResult => {
+      if (!toResult.committed) {
+          message.textContent = "⚠️ 相手のトランザクション中止（リトライ推奨）";
+          return;
+      }
 
-        if (!fromData || typeof fromData.balance !== "number") {
-            message.textContent = "❌ 自分のデータが見つかりません";
-            return;
-        }
-
-        if (fromData.balance < amount) {
-            message.textContent = "❌ 残高不足です";
-            return;
-        }
-
-        fromRef.transaction(current => {
-            if (!current || typeof current.balance !== "number") return current;
-            current.balance -= amount;
-            return current;
-        }).then(result => {
-            if (!result.committed) {
-            message.textContent = "❌ トランザクション中止（自分）";
-            return;
-            }
-
-            toRef.transaction(current => {
-            if (!current || typeof current.balance !== "number") return current;
-            current.balance += amount;
-            return current;
-            }).then(toResult => {
-            if (!toResult.committed) {
-                message.textContent = "⚠️ 相手のトランザクション中止（リトライ推奨）";
-                return;
-            }
-
-            message.textContent = "✅ 送金成功！";
-            loadUsers();
-            });
-        });
-        }).catch(error => {
-        message.textContent = "❌ 処理中エラー：" + error.message;
+      message.textContent = "✅ 送金成功！";
+      loadUsers();
+      });
     });
+  }).catch(error => {
+    message.textContent = "❌ 処理中エラー：" + error.message;
+  });
 }
 
 document.getElementById("BuyStock").addEventListener("click", async function () {
-    const button = document.getElementById("BuyStock");
-    button.disabled = true;
+  const button = document.getElementById("BuyStock");
+  button.disabled = true;
 
-    const StockAmount = parseInt(document.getElementById("StockAmount").value, 10);
-    const toUid = document.getElementById("UsersStock").value;
-    const fromUid = currentUser?.uid;
-    const message = document.getElementById("StockMessage");
+  const StockAmount = parseInt(document.getElementById("StockAmount").value, 10);
+  const toUid = document.getElementById("UsersStock").value;
+  const fromUid = currentUser?.uid;
+  const message = document.getElementById("StockMessage");
 
-    if (!currentUser) { alert("ログインしてください！"); button.disabled = false; return; }
-    if (!toUid || isNaN(StockAmount) || StockAmount <= 0) { alert("有効な送金先と株数を入力してください"); button.disabled = false; return; }
+  if (!currentUser) { alert("ログインしてください！"); button.disabled = false; return; }
+  if (!toUid || isNaN(StockAmount) || StockAmount <= 0) { alert("有効な送金先と株数を入力してください"); button.disabled = false; return; }
 
-    const fromRef = db.ref("users/" + fromUid);
-    const toRef   = db.ref("users/" + toUid);
+  const fromRef = db.ref("users/" + fromUid);
+  const toRef   = db.ref("users/" + toUid);
 
-    try {
-        const stockSnapshot = await toRef.once("value");
-        const stockPrice = stockSnapshot.val()?.stock;
+  try {
+    const stockSnapshot = await toRef.once("value");
+    const stockPrice = stockSnapshot.val()?.price;
 
-        if (typeof stockPrice !== "number" || isNaN(stockPrice)) {
-            message.textContent = "❌ 株価が無効です";
-            button.disabled = false;
-            return;
-        }
-
-        const fromSnapshot = await fromRef.once("value");
-        const fromData = fromSnapshot.val();
-
-        if (!fromData || typeof fromData.balance !== "number") {
-            message.textContent = "❌ 自分のデータが見つかりません";
-            button.disabled = false;
-            return;
-        }
-
-        const totalPrice = StockAmount * stockPrice;
-        if (fromData.balance < totalPrice) {
-            message.textContent = "❌ 残高不足です";
-            button.disabled = false;
-            return;
-        }
-
-        await fromRef.transaction(current => {
-            if (!current || typeof current.balance !== "number") return current;
-            current.balance -= totalPrice;
-            current[toUid] = (current[toUid] || 0) + StockAmount;
-            return current;
-        });
-
-        await toRef.transaction(current => {
-            if (!current || typeof current.balance !== "number") return current;
-            current.balance += totalPrice;
-            current.price += StockAmount;
-            return current;
-        });
-
-        message.textContent = "✅ 株購入成功！";
-        loadUsers();
-    } catch (error) {
-        message.textContent = "❌ エラー：" + error.message;
+    if (typeof stockPrice !== "number" || isNaN(stockPrice)) {
+      message.textContent = "❌ 株価が無効です";
+      button.disabled = false;
+      return;
     }
 
-    button.disabled = false;
+    const fromSnapshot = await fromRef.once("value");
+    const fromData = fromSnapshot.val();
+
+    if (!fromData || typeof fromData.balance !== "number") {
+      message.textContent = "❌ 自分のデータが見つかりません";
+      button.disabled = false;
+      return;
+    }
+
+    let totalPrice = StockAmount * stockPrice;
+    if (fromData.balance < totalPrice) {
+      message.textContent = "❌ 残高不足です";
+      button.disabled = false;
+      return;
+    }
+
+    await toRef.transaction(current => {
+      if (!current || typeof current.balance !== "number") return current;
+      current.balance += totalPrice;
+      current.price += StockAmount-1;
+      totalPrice = StockAmount * current.price;
+      return current;
+    });
+
+    await fromRef.transaction(current => {
+      if (!current || typeof current.balance !== "number") return current;
+      current.balance -= totalPrice;
+      current[toUid] = (current[toUid] || 0) + StockAmount;
+      return current;
+    });
+
+    message.textContent = "✅ 株購入成功！";
+    loadUsers();
+    await saveAverageStockHistory();
+  } catch (error) {
+    message.textContent = "❌ エラー：" + error.message;
+  }
+
+  button.disabled = false;
 });
 
 document.getElementById("SellStock").addEventListener("click", async function () {
-    const button = document.getElementById("SellStock");
-    button.disabled = true;
+  const button = document.getElementById("SellStock");
+  button.disabled = true;
 
-    const StockAmount = parseInt(document.getElementById("StockAmount").value, 10);
-    const toUid = document.getElementById("UsersStock").value;
-    const fromUid = currentUser?.uid;
-    const message = document.getElementById("StockMessage");
+  const StockAmount = parseInt(document.getElementById("StockAmount").value, 10);
+  const toUid = document.getElementById("UsersStock").value;
+  const fromUid = currentUser?.uid;
+  const message = document.getElementById("StockMessage");
 
-    if (!currentUser) { alert("ログインしてください！"); button.disabled = false; return; }
-    if (!toUid || isNaN(StockAmount) || StockAmount <= 0) { alert("有効な送金先と株数を入力してください"); button.disabled = false; return; }
+  if (!currentUser) { alert("ログインしてください！"); button.disabled = false; return; }
+  if (!toUid || isNaN(StockAmount) || StockAmount <= 0) { alert("有効な送金先と株数を入力してください"); button.disabled = false; return; }
 
-    const fromRef = db.ref("users/" + fromUid);
-    const toRef = db.ref("users/" + toUid);
+  const fromRef = db.ref("users/" + fromUid);
+  const toRef = db.ref("users/" + toUid);
 
-    try {
-        const stockSnapshot = await toRef.once("value");
-        const stockPrice = stockSnapshot.val()?.stock;
+  try {
+    const stockSnapshot = await toRef.once("value");
+    let stockPrice = stockSnapshot.val()?.price;
 
-        if (typeof stockPrice !== "number" || isNaN(stockPrice)) {
-            message.textContent = "❌ 株価が無効です";
-            button.disabled = false;
-            return;
-        }
-
-        const fromSnapshot = await fromRef.once("value");
-        const fromData = fromSnapshot.val();
-
-        const ownedStocks = fromData?.[toUid] || 0;
-        if (ownedStocks < StockAmount) {
-            message.textContent = "❌ 株数不足です";
-            button.disabled = false;
-            return;
-        }
-
-        await fromRef.transaction(current => {
-            if (!current || typeof current.balance !== "number") return current;
-            current.balance += StockAmount * stockPrice;
-            current[toUid] -= StockAmount;
-            return current;
-        });
-
-        await toRef.transaction(current => {
-            if (!current || typeof current.balance !== "number") return current;
-            current.balance -= StockAmount * stockPrice;
-            current.price -= StockAmount;
-            return current;
-        });
-
-        message.textContent = "✅ 株売却成功！";
-        loadUsers();
-    } catch (error) {
-        message.textContent = "❌ エラー：" + error.message;
+    if (typeof stockPrice !== "number" || isNaN(stockPrice)) {
+      message.textContent = "❌ 株価が無効です";
+      button.disabled = false;
+      return;
     }
 
-    button.disabled = false;
+    const fromSnapshot = await fromRef.once("value");
+    const fromData = fromSnapshot.val();
+
+    const ownedStocks = fromData?.[toUid] || 0;
+    if (ownedStocks < StockAmount) {
+      message.textContent = "❌ 株数不足です";
+      button.disabled = false;
+      return;
+    }
+
+    await toRef.transaction(current => {
+      if (!current || typeof current.balance !== "number") return current;
+      current.balance -= StockAmount * stockPrice;
+      current.price -= StockAmount-1;
+      stockPrice = current.price;
+      return current;
+    });
+
+    await fromRef.transaction(current => {
+      if (!current || typeof current.balance !== "number") return current;
+      current.balance += StockAmount * stockPrice;
+      current[toUid] -= StockAmount;
+      return current;
+    });
+
+    message.textContent = "✅ 株売却成功！";
+    loadUsers();
+    await saveAverageStockHistory();
+  } catch (error) {
+    message.textContent = "❌ エラー：" + error.message;
+  }
+
+  button.disabled = false;
 });
 
 document.getElementById("UsersStock").addEventListener("change", async function() {
-    const toUid = document.getElementById("UsersStock").value;
-    const fromUid = currentUser?.uid;
-    const display = document.getElementById("UsersStockAmount");
+  const toUid = document.getElementById("UsersStock").value;
+  const fromUid = currentUser?.uid;
+  const display = document.getElementById("UsersStockAmount");
 
-    if (!currentUser) {
-        alert("ログインしてください！");
-        display.textContent = "";
-        return;
-    }
+  if (!currentUser) {
+    alert("ログインしてください！");
+    display.textContent = "";
+    return;
+  }
 
-    if (!toUid) {
-        display.textContent = "";
-        return;
-    }
+  if (!toUid) {
+    display.textContent = "";
+    return;
+  }
 
-    const fromRef = db.ref("users/" + fromUid);
+  const fromRef = db.ref("users/" + fromUid);
 
-    try {
-        const snapshot = await fromRef.once("value");
-        const fromData = snapshot.val();
-        const stockCount = fromData?.[toUid] || 0;
+  try {
+    const snapshot = await fromRef.once("value");
+    const fromData = snapshot.val();
+    const stockCount = fromData?.[toUid] || 0;
 
-        display.textContent = `${stockCount} 枚`;
-    } catch (error) {
-        console.error("株数の取得エラー:", error);
-        display.textContent = "❌ エラー";
-    }
+    display.textContent = `${stockCount} 枚`;
+  } catch (error) {
+    console.error("株数の取得エラー:", error);
+    display.textContent = "❌ エラー";
+  }
 });
+
+function loginWithEmail() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  const message = document.getElementById("emailMessage");
+  message.textContent = "";
+
+  if (!email || !password) {
+    message.textContent = "❌ メールアドレスとパスワードを入力してください";
+    return;
+  }
+
+  auth.signInWithEmailAndPassword(email, password)
+  .catch(error => {
+    message.textContent = "❌ ログイン失敗：" + error.message;
+  });
+}
+
+function registerWithEmail() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  const message = document.getElementById("emailMessage");
+  message.textContent = "";
+
+  if (!email || !password) {
+    message.textContent = "❌ メールアドレスとパスワードを入力してください";
+    return;
+  }
+
+  auth.createUserWithEmailAndPassword(email, password)
+  .catch(error => {
+    message.textContent = "❌ 登録失敗：" + error.message;
+  });
+}
+
+async function saveAverageStockHistory() {
+  const snapshot = await db.ref("users").once("value");
+  const users = snapshot.val();
+  if (!users) return;
+  let totalPrice = 0;
+  let count = 0;
+  Object.values(users).forEach(u => {
+    if (typeof u.price === "number") {
+      totalPrice += u.price;
+      count++;
+    }
+  });
+  if (count === 0) return;
+  const average = totalPrice / count;
+  const timestamp = Date.now();
+  await db.ref("stock_history/" + timestamp).set({ average_price: average });
+  drawAverageStockChart();
+}
+
+// 軽量版チャート描画
+async function drawAverageStockChart() {
+  const snapshot = await db.ref("stock_history").orderByKey().limitToLast(500).once("value");
+  const data = snapshot.val();
+  if (!data) return;
+  const timestamps = Object.keys(data).sort();
+  const averages = timestamps.map(ts => data[ts].average_price);
+  const labels = timestamps.map(ts => new Date(parseInt(ts)).toLocaleString());
+  const ctx = document.getElementById('averageStockChart').getContext('2d');
+
+  if (chartInstance) {
+    chartInstance.data.labels = labels;
+    chartInstance.data.datasets[0].data = averages;
+    chartInstance.update();
+  } else {
+    chartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{ label: '平均株価', data: averages, borderColor: 'blue', fill: false }]
+      },
+      options: { responsive: true, scales: { x: { display: true }, y: { beginAtZero: true } } }
+    });
+  }
+}
+
+window.onload = drawAverageStockChart;
+  </script>
+</body>
+</html>
