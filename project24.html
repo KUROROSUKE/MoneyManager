@@ -50,7 +50,16 @@
 
   <hr>
   <h2>📊 現在のユーザー資金一覧</h2>
-  <ul id="userBalanceList"></ul>
+  <table id="userBalanceTable" border="1" cellpadding="5">
+    <thead>
+      <tr>
+        <th>名前</th>
+        <th>残高 (Eed)</th>
+      </tr>
+    </thead>
+    <tbody id="userBalanceList"></tbody>
+  </table>
+
 
   <hr>
   <p id="MyStocks"></p>
@@ -195,7 +204,7 @@ function loadUsers() {
     const users = snapshot.val();
 
     if (users && currentUser) {
-      // 🔁 ここでリセット（ループ外！）
+      // セレクトボックス・テーブルのリセット
       userBalanceList.innerHTML = '';
       select.innerHTML = '<option value="">-- ユーザーを選択 --</option>';
       StockSelect.innerHTML = '<option value="">-- ユーザーを選択 --</option>';
@@ -204,7 +213,7 @@ function loadUsers() {
       let usersNum = 0;
 
       Object.entries(users).forEach(([uid, data]) => {
-        // 送金先・株式セレクトボックス
+        // 送金先・株式セレクトボックスの更新
         if (uid !== currentUser.uid) {
           const option = document.createElement("option");
           option.value = uid;
@@ -215,23 +224,31 @@ function loadUsers() {
           option2.value = uid;
           option2.textContent = `${data.name}（株価：${data.price ?? 0} Eed）`;
           StockSelect.appendChild(option2);
+
           AllStockAmounts += data.price;
           usersNum += 1;
           
-        } else if (uid===currentUser.uid) {
+        } else {
           MyStocks.innerHTML = `自分の株価：${data.price}`;
           AllStockAmounts += data.price;
           usersNum += 1;
         }
 
-        // 資金一覧表示
-        const li = document.createElement("li");
-        li.textContent = `${data.name}：${data.balance ?? 0} Eed`;
-        userBalanceList.appendChild(li);
+        // 資金一覧（表形式）
+        const tr = document.createElement("tr");
+        const tdName = document.createElement("td");
+        const tdBalance = document.createElement("td");
 
-        let AllUsersStockAverage = AllStockAmounts / usersNum;
-        document.getElementById("StockAverage").innerHTML = `平均株価：${AllUsersStockAverage}`;
+        tdName.textContent = data.name;
+        tdBalance.textContent = `${data.balance ?? 0} Eed`;
+
+        tr.appendChild(tdName);
+        tr.appendChild(tdBalance);
+        userBalanceList.appendChild(tr);
       });
+
+      let AllUsersStockAverage = AllStockAmounts / usersNum;
+      document.getElementById("StockAverage").innerHTML = `平均株価：${AllUsersStockAverage}`;
     }
   }, (error) => {
     console.error("ユーザーデータの読み込みエラー:", error);
