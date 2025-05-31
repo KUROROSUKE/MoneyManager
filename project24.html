@@ -199,65 +199,55 @@ async function updateName() {
   });
 }
 
-function loadUsers() {
+async function loadUsers() {
+  const snapshot = await db.ref("users").once("value");
+  const users = snapshot.val();
+  if (!users) return;
+
+  userBalanceList.innerHTML = '';
   const select = document.getElementById("receiverSelect");
   const StockSelect = document.getElementById("UsersStock");
-  const userBalanceList = document.getElementById("userBalanceList");
-  const MyStocks = document.getElementById("MyStocks");
+  select.innerHTML = '<option value="">-- ユーザーを選択 --</option>';
+  StockSelect.innerHTML = '<option value="">-- ユーザーを選択 --</option>';
 
-  db.ref("users").on("value", (snapshot) => {
-    const users = snapshot.val();
+  let AllStockAmounts = 0;
+  let usersNum = 0;
 
-    if (users && currentUser) {
-      // セレクトボックス・テーブルのリセット
-      userBalanceList.innerHTML = '';
-      select.innerHTML = '<option value="">-- ユーザーを選択 --</option>';
-      StockSelect.innerHTML = '<option value="">-- ユーザーを選択 --</option>';
-      
-      let AllStockAmounts = 0;
-      let usersNum = 0;
+  Object.entries(users).forEach(([uid, data]) => {
+    if (uid !== currentUser?.uid) {
+      const option = document.createElement("option");
+      option.value = uid;
+      option.textContent = `${data.name}（残高：${data.balance} Eed）`;
+      select.appendChild(option);
 
-      Object.entries(users).forEach(([uid, data]) => {
-        // 送金先・株式セレクトボックスの更新
-        if (uid !== currentUser.uid) {
-          const option = document.createElement("option");
-          option.value = uid;
-          option.textContent = `${data.name}（残高：${data.balance} Eed）`;
-          select.appendChild(option);
-
-          const option2 = document.createElement("option");
-          option2.value = uid;
-          option2.textContent = `${data.name}（株価：${data.price ?? 0} Eed）`;
-          StockSelect.appendChild(option2);
-
-          AllStockAmounts += data.price;
-          usersNum += 1;
-          
-        } else {
-          MyStocks.innerHTML = `自分の株価：${data.price}`;
-          AllStockAmounts += data.price;
-          usersNum += 1;
-        }
-
-        // 資金一覧（表形式）
-        const tr = document.createElement("tr");
-        const tdName = document.createElement("td");
-        const tdBalance = document.createElement("td");
-
-        tdName.textContent = data.name;
-        tdBalance.textContent = `${data.balance ?? 0} Eed`;
-
-        tr.appendChild(tdName);
-        tr.appendChild(tdBalance);
-        userBalanceList.appendChild(tr);
-      });
-
-      let AllUsersStockAverage = AllStockAmounts / usersNum;
-      document.getElementById("StockAverage").innerHTML = `平均株価：${AllUsersStockAverage}`;
+      const option2 = document.createElement("option");
+      option2.value = uid;
+      option2.textContent = `${data.name}（株価：${data.price ?? 0} Eed）`;
+      StockSelect.appendChild(option2);
     }
-  }, (error) => {
-    console.error("ユーザーデータの読み込みエラー:", error);
+
+    const tr = document.createElement("tr");
+    const tdName = document.createElement("td");
+    const tdBalance = document.createElement("td");
+    tdName.textContent = data.name;
+    tdBalance.textContent = `${data.balance ?? 0} Eed`;
+    tr.appendChild(tdName);
+    tr.appendChild(tdBalance);
+    userBalanceList.appendChild(tr);
+
+    AllStockAmounts += data.price ?? 0;
+    usersNum++;
   });
+
+  const MyStocks = document.getElementById("MyStocks");
+  if (currentUser?.uid && users[currentUser.uid]) {
+    MyStocks.innerHTML = `自分の株価：${users[currentUser.uid].price ?? 0}`;
+  }
+
+  let AllUsersStockAverage = usersNum > 0 ? AllStockAmounts / usersNum : 0;
+  document.getElementById("StockAverage").innerHTML = `平均株価：${AllUsersStockAverage}`;
+
+  await drawAverageStockChart();
 }
 
 function handleTransfer(event) {
