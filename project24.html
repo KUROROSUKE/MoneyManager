@@ -1,14 +1,15 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>送金（選択式・安定版＋ランダム名前＋一覧表示）</title>
+  <title>送金（選択式・安定版＋ランダム名前＋一覧表示＋平均株価チャート 軽量版）</title>
   <meta charset="UTF-8" />
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-database-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-  <h1>💸 ユーザー間送金（ランダム名）</h1>
+  <h1>💸 ユーザー間送金（ランダム名＋平均株価チャート 軽量版）</h1>
 
   <button onclick="login()">🔑 Googleでログイン</button>
   <h3>📧 メールアドレスでログイン</h3>
@@ -60,7 +61,6 @@
     <tbody id="userBalanceList"></tbody>
   </table>
 
-
   <hr>
   <p id="MyStocks"></p>
   <p id="StockAverage"></p>
@@ -77,11 +77,15 @@
     <label>売買株数：</label><br>
     <input type="number" id="StockAmount" required><br><br>
 
-    <button id="BuyStock" >購入する</button>
+    <button id="BuyStock">購入する</button>
     <button id="SellStock">売却する</button>
 
     <div id="StockMessage"></div>
   </div>
+
+  <hr>
+  <h2>📈 平均株価の推移</h2>
+  <canvas id="averageStockChart" width="400" height="200"></canvas>
 
   <script>
 const firebaseConfig = {
@@ -377,6 +381,7 @@ document.getElementById("BuyStock").addEventListener("click", async function () 
 
     message.textContent = "✅ 株購入成功！";
     loadUsers();
+    await saveAverageStockHistory();
   } catch (error) {
     message.textContent = "❌ エラー：" + error.message;
   }
@@ -436,6 +441,7 @@ document.getElementById("SellStock").addEventListener("click", async function ()
 
     message.textContent = "✅ 株売却成功！";
     loadUsers();
+    await saveAverageStockHistory();
   } catch (error) {
     message.textContent = "❌ エラー：" + error.message;
   }
@@ -507,6 +513,52 @@ function registerWithEmail() {
   });
 }
 
+async function saveAverageStockHistory() {
+  const snapshot = await db.ref("users").once("value");
+  const users = snapshot.val();
+  if (!users) return;
+  let totalPrice = 0;
+  let count = 0;
+  Object.values(users).forEach(u => {
+    if (typeof u.price === "number") {
+      totalPrice += u.price;
+      count++;
+    }
+  });
+  if (count === 0) return;
+  const average = totalPrice / count;
+  const timestamp = Date.now();
+  await db.ref("stock_history/" + timestamp).set({ average_price: average });
+  drawAverageStockChart();
+}
+
+// 軽量版チャート描画
+async function drawAverageStockChart() {
+  const snapshot = await db.ref("stock_history").orderByKey().limitToLast(500).once("value");
+  const data = snapshot.val();
+  if (!data) return;
+  const timestamps = Object.keys(data).sort();
+  const averages = timestamps.map(ts => data[ts].average_price);
+  const labels = timestamps.map(ts => new Date(parseInt(ts)).toLocaleString());
+  const ctx = document.getElementById('averageStockChart').getContext('2d');
+
+  if (chartInstance) {
+    chartInstance.data.labels = labels;
+    chartInstance.data.datasets[0].data = averages;
+    chartInstance.update();
+  } else {
+    chartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{ label: '平均株価', data: averages, borderColor: 'blue', fill: false }]
+      },
+      options: { responsive: true, scales: { x: { display: true }, y: { beginAtZero: true } } }
+    });
+  }
+}
+
+window.onload = drawAverageStockChart;
   </script>
 </body>
 </html>
